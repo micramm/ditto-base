@@ -1,0 +1,2168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ditto Base</title>
+<style>
+  :root { --ditto: #b48ad6; --ditto-dark: #7a4fa3; --bg: #f6f0fb; --card: #fff; --text: #2b1d3a; --muted: #6d5c80; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); }
+  button { font: inherit; cursor: pointer; }
+
+  /* ---------- Passcode gate ---------- */
+  #gate { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .gate-card { background: var(--card); border-radius: 24px; padding: 32px; width: 100%; max-width: 360px; text-align: center;
+               box-shadow: 0 10px 30px rgba(122,79,163,.2); }
+  .blob { width: 96px; height: 72px; margin: 0 auto 16px; background: var(--ditto); border-radius: 50% 50% 45% 45%; position: relative; }
+  .blob::before, .blob::after { content: ""; position: absolute; top: 26px; width: 6px; height: 6px; background: var(--text); border-radius: 50%; }
+  .blob::before { left: 32px; } .blob::after { right: 32px; }
+  .gate-card h1 { margin: 0 0 8px; font-size: 1.6rem; }
+  .gate-card p { margin: 0 0 20px; color: var(--muted); }
+  .gate-card input { width: 100%; padding: 12px 14px; font-size: 1rem; border: 2px solid #e3d4f0; border-radius: 12px; outline: none; }
+  .gate-card input:focus { border-color: var(--ditto); }
+  .btn { padding: 12px 18px; font-weight: 600; color: #fff; background: var(--ditto-dark); border: 0; border-radius: 12px; }
+  .btn:hover { filter: brightness(1.1); }
+  .btn.light { background: #ede2f6; color: var(--ditto-dark); }
+  .gate-card .btn { margin-top: 12px; width: 100%; }
+  .error { color: #c0392b; min-height: 1.2em; margin-top: 10px; font-size: .9rem; }
+  .shake { animation: shake .35s; }
+  @keyframes shake { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+
+  /* ---------- Site ---------- */
+  #site { display: none; }
+  header { position: sticky; top: 0; z-index: 10; background: var(--ditto-dark); color: #fff; }
+  .bar { max-width: 1100px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .logo { font-weight: 800; font-size: 1.3rem; display: flex; align-items: center; gap: 8px; }
+  .logo .mini { width: 28px; height: 21px; background: var(--ditto); border-radius: 50% 50% 45% 45%; }
+  nav { display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
+  nav button { background: none; border: 0; color: #fff; padding: 8px 12px; border-radius: 8px; opacity: .85; }
+  nav button.active, nav button:hover { background: rgba(255,255,255,.18); opacity: 1; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+  section { display: none; } section.show { display: block; }
+  h2 { margin: 0 0 16px; }
+
+  .hero { background: linear-gradient(135deg, #c9a6e6, #8f63bd); color: #fff; border-radius: 24px; padding: 32px;
+          display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+  .hero img { width: 180px; height: 180px; object-fit: contain; filter: drop-shadow(0 8px 12px rgba(0,0,0,.25)); }
+  .hero h1 { margin: 0 0 8px; font-size: 2.2rem; }
+  .hero p { margin: 0 0 16px; max-width: 520px; line-height: 1.5; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 24px; }
+  .tile { background: var(--card); border-radius: 18px; padding: 20px; box-shadow: 0 4px 14px rgba(122,79,163,.1); cursor: pointer; }
+  .tile:hover { transform: translateY(-2px); }
+  .tile h3 { margin: 0 0 6px; } .tile p { margin: 0; color: var(--muted); }
+
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .controls input, .controls select { padding: 10px 12px; font-size: 1rem; border: 2px solid #e3d4f0; border-radius: 12px; background: #fff; }
+  .controls input { flex: 1; min-width: 180px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; }
+  .poke { background: var(--card); border-radius: 16px; padding: 12px; text-align: center; cursor: pointer;
+          box-shadow: 0 3px 10px rgba(122,79,163,.1); transition: transform .15s; }
+  .poke:hover { transform: translateY(-3px); }
+  .poke img { width: 96px; height: 96px; object-fit: contain; }
+  .poke .num { font-size: .8rem; color: var(--muted); }
+  .poke .name { font-weight: 600; text-transform: capitalize; }
+  .status { color: var(--muted); padding: 24px 0; text-align: center; }
+
+  .type { display: inline-block; padding: 3px 10px; border-radius: 999px; color: #fff; font-size: .8rem; font-weight: 600;
+          text-transform: capitalize; margin: 2px; }
+
+  /* Right now */
+  .now-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .now-head h2 { margin: 0; flex: 1; }
+  .now-box { background: var(--card); border-radius: 18px; padding: 8px 16px; box-shadow: 0 3px 10px rgba(122,79,163,.08); }
+  .now-row { display: grid; grid-template-columns: 110px 1fr; gap: 12px; align-items: start; padding: 10px 0; border-bottom: 1px solid #f0e8f7; }
+  .now-row:last-of-type { border-bottom: 0; }
+  .now-row.dim { opacity: .55; }
+  .now-row > b { padding-top: 6px; color: var(--ditto-dark); }
+  .now-row > b.task { color: var(--text); font-weight: 600; font-size: .9rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; background: #f3ebfa; color: var(--text); border: 0; border-radius: 999px;
+          padding: 3px 10px 3px 4px; font-size: .85rem; font-weight: 600; }
+  .chip img { width: 30px; height: 30px; object-fit: contain; }
+  button.chip { cursor: pointer; } button.chip:hover { background: #e3d4f0; }
+  .chip small { color: var(--muted); font-weight: 500; }
+  .lineup { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .lineup small { color: var(--muted); display: block; margin-bottom: 4px; }
+  @media (max-width: 640px) { .now-row { grid-template-columns: 1fr; gap: 6px; } .lineup { grid-template-columns: 1fr; } }
+
+  /* Events */
+  .ev-filters { margin-bottom: 8px; }
+  .ev-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  .ev { background: var(--card); border-radius: 18px; overflow: hidden; box-shadow: 0 3px 10px rgba(122,79,163,.1); display: flex; flex-direction: column; }
+  .ev.live { outline: 3px solid #2ecc71; }
+  .ev-img { width: 100%; aspect-ratio: 16 / 7; object-fit: cover; background: #ede2f6; }
+  .ev-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .ev-body h3 { margin: 2px 0 0; font-size: 1.05rem; }
+  .ev-kind { align-self: flex-start; color: #fff; font-size: .75rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+  .ev-time { color: var(--muted); font-size: .9rem; }
+  .ev-when { font-weight: 600; font-size: .9rem; }
+  .ev-body a { color: var(--ditto-dark); font-size: .85rem; font-weight: 600; margin-top: auto; text-decoration: none; }
+  .ev-bosses { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ev-bosses button, .ev-bosses span { display: flex; align-items: center; gap: 4px; background: #ede2f6; color: var(--ditto-dark); border: 0;
+    border-radius: 999px; padding: 3px 10px 3px 4px; font-size: .8rem; font-weight: 600; }
+  .ev-bosses span { padding-left: 10px; }
+  .ev-bosses img { width: 26px; height: 26px; object-fit: contain; }
+  .ev-day { margin: 18px 0 10px; color: var(--ditto-dark); }
+
+  /* Raids */
+  .raid-box { background: var(--card); border-radius: 20px; padding: 20px; margin-bottom: 16px; }
+  .raid-boss { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+  .raid-boss img { width: 140px; height: 140px; object-fit: contain; }
+  .raid-boss h3 { margin: 0 0 6px; text-transform: capitalize; font-size: 1.5rem; }
+  .weak-row { margin: 6px 0; font-size: .95rem; }
+  .weak-row b { display: inline-block; min-width: 110px; }
+  .suggest { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .suggest button { background: #ede2f6; color: var(--ditto-dark); border: 0; border-radius: 999px; padding: 6px 12px; text-transform: capitalize; font-weight: 600; }
+  .counters { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; }
+  .counter { background: var(--card); border-radius: 16px; padding: 28px 12px 12px; text-align: center; position: relative; cursor: pointer;
+             box-shadow: 0 3px 10px rgba(122,79,163,.1); }
+  .counter .rank { position: absolute; top: 8px; left: 10px; font-weight: 800; color: var(--ditto-dark); }
+  .counter img { width: 90px; height: 90px; object-fit: contain; }
+  .counter .name { font-weight: 600; text-transform: capitalize; }
+  .counter .why { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .meter { height: 8px; background: #efe6f7; border-radius: 4px; overflow: hidden; margin-top: 6px; }
+  .meter div { height: 100%; background: linear-gradient(90deg, #b48ad6, #7a4fa3); }
+  .note { color: var(--muted); font-size: .85rem; }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button { border: 0; border-radius: 999px; padding: 8px 14px; background: #ede2f6; color: var(--ditto-dark); font-weight: 600; }
+  .tabs button.active { background: var(--ditto-dark); color: #fff; }
+  .filters { display: flex; gap: 14px; flex-wrap: wrap; margin: 12px 0 6px; font-size: .9rem; }
+  .filters label { display: flex; gap: 5px; align-items: center; cursor: pointer; }
+  #grunts button { text-transform: capitalize; }
+  .tag { position: absolute; top: 8px; right: 10px; font-size: .7rem; font-weight: 700; padding: 2px 7px; border-radius: 999px; color: #fff; }
+  .tag.shadow { background: #4b2a6b; } .tag.mega { background: #e67e22; }
+  .elite { background: #f7d02c; color: #3a2a00; border-radius: 6px; padding: 0 5px; font-size: .7rem; font-weight: 700; }
+
+  /* Modal */
+  .modal { position: fixed; inset: 0; background: rgba(30,15,45,.55); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
+  .modal.open { display: flex; }
+  .sheet { background: var(--card); border-radius: 24px; padding: 24px; width: 100%; max-width: 460px; max-height: 90vh; overflow: auto; position: relative; }
+  .sheet .close { position: absolute; top: 12px; right: 12px; background: #ede2f6; border: 0; border-radius: 50%; width: 34px; height: 34px; font-size: 1.1rem; }
+  .sheet img { width: 180px; height: 180px; object-fit: contain; display: block; margin: 0 auto; }
+  .sheet h3 { text-align: center; text-transform: capitalize; margin: 4px 0; font-size: 1.5rem; }
+  .sheet .types { text-align: center; margin-bottom: 12px; }
+  .sheet .flavor { color: var(--muted); font-style: italic; text-align: center; line-height: 1.5; }
+  .mini-art { width: 26px; height: 26px; vertical-align: middle; margin: -4px 4px -4px -4px; }
+  #shinydex-btn.on { background: linear-gradient(90deg, #ffe680, #ffb3e6, #b3e0ff); color: #4a2a6a; }
+  .shiny-toggle { padding: 4px 12px; font-size: .85rem; margin-top: -4px; }
+  .forms-title { margin: 14px 0 6px; text-align: center; }
+  .forms { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .form-mon { cursor: pointer; width: 120px; text-align: center; background: var(--bg); border-radius: 12px; padding: 8px; font-weight: 600; font-size: .9rem; }
+  #modal-body .form-mon img { width: 90px; height: 90px; margin: 0 auto; display: block; }
+  .facts { display: flex; justify-content: space-around; margin: 12px 0; text-align: center; }
+  .facts b { display: block; font-size: 1.1rem; }
+  .stat { display: grid; grid-template-columns: 90px 36px 1fr; align-items: center; gap: 8px; font-size: .9rem; margin: 6px 0; }
+  .stat .track { height: 8px; background: #efe6f7; border-radius: 4px; overflow: hidden; }
+  .stat .fill { height: 100%; background: var(--ditto-dark); }
+  .sheet .actions { display: flex; gap: 8px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
+
+  /* GO Tools */
+  .iv-sliders { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 12px; }
+  .iv-sliders label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
+  .iv-sliders b { color: var(--ditto-dark); }
+  .iv-sliders input { width: 100%; accent-color: var(--ditto-dark); }
+  .iv-pct { font-size: 1.2rem; font-weight: 700; margin-top: 12px; }
+  .iv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .iv-grid .raid-box { margin-bottom: 0; }
+  .iv-row { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f0e8f7; }
+  .iv-row:last-child { border-bottom: 0; }
+  .iv-league { padding: 10px 0; border-bottom: 1px solid #f0e8f7; } .iv-league:last-child { border-bottom: 0; }
+  .iv-rank { font-size: 1.5rem; font-weight: 800; margin: 4px 0; } .iv-rank small { font-size: .8rem; color: var(--muted); font-weight: 500; }
+  .iv-rank.great { color: #27ae60; } .iv-rank.good { color: #2980b9; }
+  .evo-tree { overflow-x: auto; }
+  .evo-step { display: flex; align-items: center; gap: 12px; }
+  .evo-kids { display: flex; flex-direction: column; gap: 12px; }
+  .evo-branch { display: flex; align-items: center; gap: 12px; }
+  .evo-mon { text-align: center; min-width: 110px; font-weight: 600; font-size: .9rem; padding: 8px; border-radius: 14px; }
+  .evo-mon.me { background: #f3ebfa; outline: 2px solid var(--ditto); }
+  .evo-mon img { width: 80px; height: 80px; object-fit: contain; display: block; margin: 0 auto; }
+  .evo-arrow { display: flex; flex-direction: column; gap: 4px; font-size: .85rem; width: 220px; flex-shrink: 0; color: var(--text); }
+  @media (max-width: 640px) { .evo-arrow { width: auto; } }
+  .evo-req { background: #fff4d6; color: #6b4e00; border-radius: 8px; padding: 2px 8px; font-size: .75rem; }
+  @media (max-width: 640px) { .evo-step, .evo-branch { flex-direction: column; align-items: flex-start; } }
+  /* Fun */
+  .catch-box { background: #0b1a33; border-radius: 24px; padding: 14px; text-align: center; color: #dff6ff; }
+  .catch-canvas { width: 100%; height: 440px; display: block; border-radius: 16px; cursor: pointer; }
+  .throw-btn { background: linear-gradient(135deg, #e3350d, #ff6b3d); font-size: 1.1rem; padding: 12px 28px; box-shadow: 0 0 14px rgba(255,107,61,.6); }
+  .chance { position: relative; height: 8px; background: rgba(255,255,255,.12); border-radius: 4px; overflow: hidden; margin: 12px 0 4px; }
+  .chance-best { position: absolute; inset: 0 auto 0 0; background: rgba(127,227,255,.3); }
+  .chance-fill { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #2ef27a, #7fe3ff); transition: width .3s; }
+  .catch-box .chance-text { color: #9fc4d8; }
+  .catch-box .note { color: #9fc4d8; }
+  .catch-msg { min-height: 1.5em; margin: 6px 0 10px; font-weight: 600; color: #7fe3ff; }
+  .ball-pick, .catch-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .ball-pick button { border: 2px solid rgba(255,255,255,.2); background: rgba(255,255,255,.08); color: #fff; border-radius: 999px; padding: 6px 12px; font-weight: 600; }
+  .ball-pick button.active { border-color: #7fe3ff; background: rgba(127,227,255,.18); box-shadow: 0 0 10px rgba(127,227,255,.5); }
+  .ball-pick button:disabled { opacity: .4; }
+  .ball-svg { display: block; filter: drop-shadow(0 2px 2px rgba(0,0,0,.25)); }
+  .ball-pick button .ball-svg { display: inline-block; vertical-align: middle; filter: none; }
+  .egg-pick { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .egg-pick button { background: #fff; border: 2px solid #ede2f6; border-radius: 16px; padding: 10px 16px; font-weight: 700; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .egg { display: block; width: 44px; height: 56px; border-radius: 50% 50% 46% 46% / 60% 60% 40% 40%; background: radial-gradient(circle at 30% 40%, var(--spot) 14%, transparent 15%), radial-gradient(circle at 70% 65%, var(--spot) 12%, transparent 13%), #fff; border: 2px solid #ddd; }
+  .egg.big { width: 110px; height: 140px; margin: 0 auto; }
+  .egg.wobble { animation: eggwob .5s ease-in-out 5, eggflash 2.6s forwards; }
+  @keyframes eggwob { 25% { transform: rotate(-12deg); } 75% { transform: rotate(12deg); } }
+  @keyframes eggflash { 85% { filter: brightness(1); } 100% { filter: brightness(4); } }
+  .egg-stage { background: var(--card); border-radius: 24px; padding: 28px; text-align: center; min-height: 240px; }
+  .hatched img { width: 180px; height: 180px; object-fit: contain; animation: pop .5s; }
+  .dodge-btn { background: #24476e; font-size: 1.1rem; padding: 12px 24px; }
+  .dodge-btn.alert { background: #ff3b3b; box-shadow: 0 0 18px #ff3b3b; animation: glow .4s infinite alternate; }
+  .stop-btn { background: linear-gradient(135deg, #1a8fd8, #7ff0ff); box-shadow: 0 0 14px rgba(127,240,255,.6); }
+  .berry-btn { background: linear-gradient(135deg, #d6336c, #ff9ff3); box-shadow: 0 0 14px rgba(255,159,243,.6); }
+  @keyframes glow { to { box-shadow: 0 0 4px currentColor; } }
+  .col-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .col-mon { background: var(--card); border-radius: 16px; padding: 10px; text-align: center; box-shadow: 0 3px 10px rgba(122,79,163,.08); }
+  .col-mon.shiny { outline: 2px solid gold; }
+  .col-mon img { width: 80px; height: 80px; object-fit: contain; }
+  .col-mon .name { font-weight: 700; font-size: .9rem; }
+  .col-mon { position: relative; }
+  .col-mon[data-pick] { cursor: pointer; }
+  .col-mon.picked { outline: 3px solid var(--ditto-dark); background: #f3ebfa; }
+  .col-check { position: absolute; top: 8px; left: 8px; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--ditto-dark); color: #fff; background: #fff; font-size: .8rem; line-height: 18px; }
+  .col-mon.picked .col-check { background: var(--ditto-dark); }
+  .col-actions { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+  .col-actions button { border: 0; border-radius: 10px; padding: 6px; font-size: .78rem; font-weight: 700; cursor: pointer; }
+  .col-transfer { background: #fde2e1; color: #b03a2e; }
+  .col-evolve { background: #e3f6ea; color: #1e8449; }
+  .col-evolve:disabled { background: #f0f0f0; color: #999; cursor: default; }
+
+  /* Medals */
+  .medal-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .medal-summary div { background: var(--card); border-radius: 16px; padding: 14px; text-align: center; box-shadow: 0 3px 10px rgba(122,79,163,.08); }
+  .medal-summary b { display: block; font-size: 1.6rem; }
+  .medal-summary span { color: var(--muted); font-size: .85rem; }
+  .medal-cat { margin: 22px 0 10px; color: var(--ditto-dark); }
+  .medal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+  .medal { background: var(--card); border-radius: 16px; padding: 14px; box-shadow: 0 3px 10px rgba(122,79,163,.08); display: grid;
+           grid-template-columns: 44px 1fr 96px; gap: 10px; align-items: center; }
+  .medal.plat { background: linear-gradient(135deg, #fff, #eef3f8); outline: 2px solid #b8c7d9; }
+  .medal-icon { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;
+                background: #eee; border: 3px solid #ccc; }
+  .tier-0 { background: #f3f0f6; border-color: #ddd5e6; } .tier-1 { background: #f4e1cf; border-color: #cd7f32; }
+  .tier-2 { background: #eef0f2; border-color: #a8b0b8; } .tier-3 { background: #fbf1c7; border-color: #e0b100; }
+  .tier-4 { background: #e9f0f8; border-color: #7f9bbd; box-shadow: 0 0 10px rgba(127,155,189,.6); }
+  .medal h4 { margin: 0; font-size: .98rem; }
+  .medal .what { color: var(--muted); font-size: .8rem; }
+  .medal .mbar { height: 8px; background: #efe6f7; border-radius: 4px; overflow: hidden; margin: 6px 0 3px; }
+  .medal .mbar div { height: 100%; background: linear-gradient(90deg, #a8b0b8, #7f9bbd); }
+  .medal .left { font-size: .78rem; color: var(--muted); }
+  .medal input { width: 100%; padding: 8px; font-size: .95rem; border: 2px solid #e3d4f0; border-radius: 10px; text-align: right; }
+
+  footer { text-align: center; color: var(--muted); font-size: .85rem; padding: 0 16px 32px; }
+</style>
+</head>
+<body>
+
+<!-- ================= Passcode gate ================= -->
+<div id="gate">
+  <div class="gate-card" id="gate-card">
+    <div class="blob"></div>
+    <h1>Ditto Base</h1>
+    <p>Enter the passcode to continue.</p>
+    <form id="gate-form">
+      <input id="passcode" type="password" placeholder="Passcode" autocomplete="off" autofocus>
+      <button class="btn" type="submit">Enter</button>
+    </form>
+    <div id="error" class="error"></div>
+  </div>
+</div>
+
+<!-- ================= Website ================= -->
+<div id="site">
+  <header>
+    <div class="bar">
+      <div class="logo"><span class="mini"></span>Ditto Base</div>
+      <nav>
+        <button data-page="home" class="active">Home</button>
+        <button data-page="pokedex">Pokédex</button>
+        <button data-page="now">Right Now</button>
+        <button data-page="events">Events</button>
+        <button data-page="raids">Counters</button>
+        <button data-page="medals">Medals</button>
+        <button data-page="tools">GO Tools</button>
+        <button data-page="fun">Fun</button>
+        <button id="lock">Lock</button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- Home -->
+    <section id="home" class="show">
+      <div class="hero">
+        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/132.png" alt="Ditto">
+        <div>
+          <h1>Welcome to Ditto Base!</h1>
+          <p>Ditto is the Transform Pokémon. It can rearrange its cells to copy anything it sees. Here at Ditto Base you can explore every Pokémon, see the best stuff happening in Pokémon GO right now, check the event schedule and find the best counters for any battle.</p>
+          <button class="btn light" data-go="pokedex">Open the Pokédex</button>
+        </div>
+      </div>
+      <div class="tiles">
+        <div class="tile" data-go="pokedex"><h3>📖 Pokédex</h3><p>Search and browse Pokémon from every generation.</p></div>
+        <div class="tile" data-go="now"><h3>🔥 Right Now</h3><p>The best stuff happening in Pokémon GO right now: events, raid bosses, Rocket teams, research and eggs.</p></div>
+        <div class="tile" data-go="events"><h3>📅 Events</h3><p>What's happening in Pokémon GO now and coming up next.</p></div>
+        <div class="tile" data-go="fun"><h3>🎮 Fun Zone</h3><p>Catch game, raid battles, PokéStop spins, berry toss, egg hatcher and your own collection.</p></div>
+        <div class="tile" data-go="tools"><h3>🧰 GO Tools</h3><p>IV and league rank checker, plus an evolution and candy guide.</p></div>
+        <div class="tile" data-go="medals"><h3>🏅 Medals</h3><p>Track your progress toward every platinum medal.</p></div>
+        <div class="tile" data-go="raids"><h3>⚔️ Counters</h3><p>Pokémon GO counters for raids, Mega raids, Max Battles, Team GO Rocket and GO Battle League.</p></div>
+      </div>
+    </section>
+
+    <!-- Pokédex -->
+    <section id="pokedex">
+      <h2 id="dex-title">Pokédex</h2>
+      <div class="controls">
+        <button class="btn light" id="shinydex-btn">✨ Shinydex</button>
+        <input id="search" placeholder="Search by name or number…">
+        <select id="gen">
+          <option value="1,151">Gen 1 (Kanto)</option>
+          <option value="152,251">Gen 2 (Johto)</option>
+          <option value="252,386">Gen 3 (Hoenn)</option>
+          <option value="387,493">Gen 4 (Sinnoh)</option>
+          <option value="494,649">Gen 5 (Unova)</option>
+          <option value="650,721">Gen 6 (Kalos)</option>
+          <option value="722,809">Gen 7 (Alola)</option>
+          <option value="810,905">Gen 8 (Galar)</option>
+          <option value="906,1025">Gen 9 (Paldea)</option>
+          <option value="1,1025">All generations</option>
+        </select>
+      </div>
+      <div id="grid" class="grid"></div>
+      <div id="dex-status" class="status">Loading Pokémon…</div>
+    </section>
+
+    <!-- Right now -->
+    <section id="now">
+      <div class="now-head">
+        <h2>Right now in Pokémon GO</h2>
+        <span class="note" id="now-updated"></span>
+        <button class="btn light" id="now-refresh">↻ Refresh</button>
+      </div>
+      <div id="now-body"></div>
+    </section>
+
+    <!-- Events -->
+    <section id="events">
+      <h2>Pokémon GO Events</h2>
+      <div class="controls" style="align-items:center">
+        <div class="tabs ev-filters" id="ev-filters" style="margin:0;flex:1"></div>
+        <button class="btn light" id="ev-refresh">↻ Refresh</button>
+      </div>
+      <p class="note" style="margin-top:0">Times are shown in your time zone. Tap a raid boss to see its counters.</p>
+      <div id="events-list"></div>
+    </section>
+
+    <!-- Counters -->
+    <section id="raids">
+      <h2>Pokémon GO Counters</h2>
+      <div class="tabs" id="ctr-tabs"></div>
+      <div class="raid-box">
+        <div class="controls" style="margin-bottom:0">
+          <select id="gbl-league" style="display:none">
+            <option value="1500">Great League</option><option value="2500">Ultra League</option><option value="10000">Master League</option>
+          </select>
+          <input id="ctr-search" list="ctr-names" autocomplete="off">
+          <button class="btn" id="ctr-go">Find counters</button>
+        </div>
+        <datalist id="ctr-names"></datalist>
+        <div class="suggest" id="grunts" style="display:none"></div>
+        <div class="suggest" id="ctr-suggest"></div>
+        <div class="filters" id="ctr-filters">
+          <label><input type="checkbox" id="f-shadow" checked> Shadow</label>
+          <label><input type="checkbox" id="f-mega" checked> Mega</label>
+          <label><input type="checkbox" id="f-legend" checked> Legendary &amp; Mythical</label>
+          <label><input type="checkbox" id="f-elite" checked> Elite TM moves</label>
+        </div>
+        <div class="note" id="ctr-updated"></div>
+      </div>
+      <div id="ctr-result"></div>
+    </section>
+    <!-- GO Tools -->
+    <section id="tools">
+      <h2>Pokémon GO Tools</h2>
+      <div class="tabs" id="tool-tabs">
+        <button data-tool="iv">IV &amp; League Rank</button>
+        <button data-tool="evo">Evolution &amp; Candy</button>
+      </div>
+      <datalist id="tool-names"></datalist>
+
+      <div class="tool" id="tool-iv">
+        <div class="raid-box">
+          <div class="controls"><input id="iv-mon" list="tool-names" placeholder="Type a Pokémon, like Azumarill…" autocomplete="off"></div>
+          <div class="iv-sliders">
+            <label>Attack <b id="iv-a-v">15</b><input type="range" id="iv-a" min="0" max="15" value="15"></label>
+            <label>Defense <b id="iv-d-v">15</b><input type="range" id="iv-d" min="0" max="15" value="15"></label>
+            <label>HP <b id="iv-s-v">15</b><input type="range" id="iv-s" min="0" max="15" value="15"></label>
+          </div>
+          <div class="iv-pct" id="iv-pct"></div>
+          <p class="note">Get the IVs from your in-game appraisal: each bar has 3 sections of 5 points.</p>
+        </div>
+        <div id="iv-result"></div>
+      </div>
+
+      <div class="tool" id="tool-evo">
+        <div class="raid-box"><div class="controls" style="margin:0"><input id="evo-mon" list="tool-names" placeholder="Type a Pokémon, like Eevee…" autocomplete="off"></div></div>
+        <div id="evo-result"></div>
+      </div>
+
+    </section>
+
+    <!-- Fun -->
+    <section id="fun">
+      <h2>Fun Zone</h2>
+      <div class="tabs" id="fun-tabs">
+        <button data-fun="catch">🎯 Catch Game</button>
+        <button data-fun="raid">⚔️ Raid Battle</button>
+        <button data-fun="stop">📍 PokéStop Spin</button>
+        <button data-fun="berry">🍓 Berry Toss</button>
+        <button data-fun="eggs">🥚 Egg Hatcher</button>
+        <button data-fun="collection">📦 My Collection</button>
+      </div>
+
+      <div class="fun" id="fun-catch">
+        <div class="catch-box">
+          <canvas id="catch-canvas" class="catch-canvas"></canvas>
+          <div class="chance"><div class="chance-best" id="chance-best"></div><div class="chance-fill" id="chance-fill"></div></div>
+          <div class="note chance-text" id="chance-text"></div>
+          <div class="catch-msg" id="catch-msg"></div>
+          <div class="ball-pick" id="ball-pick"></div>
+          <div class="catch-actions">
+            <button class="btn throw-btn" id="throw-btn">Throw!</button>
+            <button class="btn light" id="run-btn">🏃 Run away</button>
+            <button class="btn light" id="restock-btn">🎒 Restock</button>
+            <button class="btn light" id="sound-btn">🔊 Sound on</button>
+          </div>
+          <div class="note" id="catch-stats"></div>
+        </div>
+      </div>
+
+      <div class="fun" id="fun-eggs">
+        <div class="raid-box">
+          <p class="note" style="margin-top:0">Pick an egg to hatch. These are the real egg pools in Pokémon GO right now!</p>
+          <div class="egg-pick" id="egg-pick"><div class="status">Loading eggs…</div></div>
+        </div>
+        <div class="egg-stage" id="egg-stage"><p class="note">Your hatch will show up here.</p></div>
+      </div>
+
+      <div class="fun" id="fun-raid">
+        <div class="catch-box">
+          <canvas id="raid-canvas" class="catch-canvas"></canvas>
+          <div class="catch-msg" id="raid-msg"></div>
+          <div class="note" id="raid-who"></div>
+          <div class="catch-actions" style="margin-top:10px">
+            <button class="btn throw-btn" id="raid-attack">⚔️ Attack!</button>
+            <button class="btn dodge-btn" id="raid-dodge">💨 Dodge</button>
+          </div>
+          <div class="catch-actions">
+            <button class="btn light" id="raid-start">Start raid!</button>
+            <button class="btn light" id="raid-switch">🔄 Switch attacker</button>
+          </div>
+          <div class="note" id="raid-stats"></div>
+        </div>
+      </div>
+
+      <div class="fun" id="fun-stop">
+        <div class="catch-box">
+          <canvas id="stop-canvas" class="catch-canvas"></canvas>
+          <div class="catch-msg" id="stop-msg">Tap Spin when the needle is in the gold zone for a perfect spin! Every perfect spin gives you a Master Ball.</div>
+          <div class="catch-actions"><button class="btn throw-btn stop-btn" id="stop-spin">📍 Spin!</button></div>
+          <div class="note" id="stop-stats"></div>
+        </div>
+      </div>
+
+      <div class="fun" id="fun-berry">
+        <div class="catch-box">
+          <canvas id="berry-canvas" class="catch-canvas"></canvas>
+          <div class="catch-msg" id="berry-msg"></div>
+          <div class="catch-actions">
+            <button class="btn throw-btn berry-btn" id="berry-toss">🍓 Toss!</button>
+            <button class="btn light" id="berry-start">Start!</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="fun" id="fun-collection">
+        <div class="medal-summary" id="col-stats"></div>
+        <div class="controls">
+          <select id="col-filter"><option value="all">Everything</option><option value="shiny">Shiny only</option><option value="hundo">Hundos only</option></select>
+          <button class="btn light" id="col-select">Select</button>
+          <button class="btn" id="col-transfer-sel" style="display:none">Transfer selected</button>
+          <button class="btn light" id="col-dupes">Select duplicates</button>
+          <button class="btn light" id="col-clear">Release all</button>
+        </div>
+        <div class="catch-msg" id="col-msg" style="color:var(--ditto-dark)"></div>
+        <div class="col-grid" id="col-grid"></div>
+      </div>
+    </section>
+
+    <!-- Medals -->
+    <section id="medals">
+      <div class="now-head">
+        <h2>Platinum Medal Tracker</h2>
+        <button class="btn light" id="medal-sort">Sort: closest to platinum</button>
+      </div>
+      <div class="medal-summary" id="medal-summary"></div>
+      <div class="controls">
+        <input id="medal-search" placeholder="Find a medal…">
+        <select id="medal-show">
+          <option value="all">All medals</option>
+          <option value="todo">Not platinum yet</option>
+          <option value="done">Platinum</option>
+        </select>
+      </div>
+      <div id="medal-list"></div>
+      <p class="note">Type the number from each medal in your Pokémon GO profile. Your progress is saved in this browser on this computer.</p>
+    </section>
+  </main>
+
+  <footer>Ditto Base is a fan site. Pokémon data and images come from PokéAPI. Pokémon is © Nintendo, Game Freak and The Pokémon Company.</footer>
+</div>
+
+<!-- Detail popup -->
+<div class="modal" id="modal">
+  <div class="sheet">
+    <button class="close" id="modal-close" aria-label="Close">✕</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script src="go-data.js"></script>
+<script src="spawns.js"></script>
+<script>
+  /* ================= Passcode gate ================= */
+  const PASSCODE = "ditto";
+  const gate = document.getElementById("gate");
+  const site = document.getElementById("site");
+  let started = false;
+
+  function unlock() {
+    gate.style.display = "none"; site.style.display = "block";
+    if (!started) { started = true; startSite(); }
+  }
+  function lock() {
+    try { sessionStorage.removeItem("ditto-unlocked"); } catch (e) {}
+    site.style.display = "none"; gate.style.display = "flex";
+    document.getElementById("passcode").value = "";
+    document.getElementById("passcode").focus();
+  }
+  document.getElementById("gate-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const input = document.getElementById("passcode");
+    if (input.value.trim().toLowerCase() === PASSCODE) {
+      try { sessionStorage.setItem("ditto-unlocked", "1"); } catch (e) {}
+      document.getElementById("error").textContent = "";
+      unlock();
+    } else {
+      const card = document.getElementById("gate-card");
+      document.getElementById("error").textContent = "Wrong passcode. Try again!";
+      card.classList.remove("shake"); void card.offsetWidth; card.classList.add("shake");
+      input.select();
+    }
+  });
+  document.getElementById("lock").addEventListener("click", lock);
+
+  /* ================= Helpers ================= */
+  const API = "https://pokeapi.co/api/v2";
+  const art = (id, shiny) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${shiny ? "shiny/" : ""}${id}.png`;
+  // If a shiny picture is missing, fall back to the normal one
+  const shinyFallback = `onerror="if(this.src.includes('/shiny/')){this.src=this.src.replace('/shiny/','/')}"`;
+  const TYPE_COLORS = { normal:"#a8a77a", fire:"#ee8130", water:"#6390f0", electric:"#f7d02c", grass:"#7ac74c", ice:"#96d9d6",
+    fighting:"#c22e28", poison:"#a33ea1", ground:"#e2bf65", flying:"#a98ff3", psychic:"#f95587", bug:"#a6b91a", rock:"#b6a136",
+    ghost:"#735797", dragon:"#6f35fc", dark:"#705746", steel:"#b7b7ce", fairy:"#d685ad" };
+  const typeBadge = (t) => `<span class="type" style="background:${TYPE_COLORS[t] || "#999"}">${t}</span>`;
+  const pad = (n) => "#" + String(n).padStart(4, "0");
+  const pretty = (s) => s.replace(/-/g, " ");
+  let allPokemon = []; // [{id, name}]
+  const cache = {};
+
+  async function getPokemon(id, speciesId = id) { // forms (Alolan etc.) have their own id but share the species
+    if (cache[id]) return cache[id];
+    const [p, s] = await Promise.all([
+      fetch(`${API}/pokemon/${id}`).then(r => r.json()),
+      fetch(`${API}/pokemon-species/${speciesId}`).then(r => r.json())
+    ]);
+    const flavor = (s.flavor_text_entries.find(f => f.language.name === "en") || {}).flavor_text || "";
+    return cache[id] = { id, name: p.name, types: p.types.map(t => t.type.name), height: p.height / 10, weight: p.weight / 10,
+      stats: p.stats.map(st => ({ name: st.stat.name, value: st.base_stat })), flavor: flavor.replace(/[\f\n\r]/g, " ") };
+  }
+
+  /* ================= Navigation ================= */
+  function go(page) {
+    document.querySelectorAll("section").forEach(s => s.classList.toggle("show", s.id === page));
+    document.querySelectorAll("nav button[data-page]").forEach(b => b.classList.toggle("active", b.dataset.page === page));
+    window.scrollTo(0, 0);
+    if (page === "events") loadEvents();
+    if (page === "now") loadNow();
+    if (page === "medals") renderMedals();
+    if (page === "fun") setFun(document.querySelector("#fun-tabs .active") ? document.querySelector("#fun-tabs .active").dataset.fun : "catch");
+    else if (typeof stopCatchLoop === "function") { stopCatchLoop(); raidGame.stop(); stopGame.stop(); berryGame.stop(); }
+  }
+  document.querySelectorAll("[data-page]").forEach(b => b.addEventListener("click", () => go(b.dataset.page)));
+  document.querySelectorAll("[data-go]").forEach(b => b.addEventListener("click", () => go(b.dataset.go)));
+
+  /* ================= Pokédex ================= */
+  async function startSite() {
+    try {
+      const data = await fetch(`${API}/pokemon-species?limit=1025`).then(r => r.json());
+      allPokemon = data.results.map(r => ({ id: Number(r.url.split("/").filter(Boolean).pop()), name: r.name })).sort((a, b) => a.id - b.id);
+      renderDex();
+    } catch (e) {
+      document.getElementById("dex-status").textContent = "Couldn't load Pokémon. Check your internet connection and refresh.";
+    }
+  }
+  // Shinydex: the same Pokédex, but every picture shows the shiny colors (the button switches back)
+  let shinyDex = false; try { shinyDex = localStorage.getItem("ditto-shinydex") === "1"; } catch (e) {}
+  function setShinyDex(on) {
+    shinyDex = on; try { localStorage.setItem("ditto-shinydex", on ? "1" : "0"); } catch (e) {}
+    document.getElementById("dex-title").textContent = on ? "✨ Shinydex" : "Pokédex";
+    document.getElementById("shinydex-btn").textContent = on ? "📕 Normal Pokédex" : "✨ Shinydex";
+    document.getElementById("shinydex-btn").classList.toggle("on", on);
+    if (allPokemon.length) renderDex();
+  }
+  document.getElementById("shinydex-btn").onclick = () => setShinyDex(!shinyDex);
+  setShinyDex(shinyDex);
+  function renderDex() {
+    const q = document.getElementById("search").value.trim().toLowerCase().replace(/^#0*/, "");
+    const [lo, hi] = document.getElementById("gen").value.split(",").map(Number);
+    const list = allPokemon.filter(p => q ? (p.name.includes(q) || String(p.id) === q) : (p.id >= lo && p.id <= hi));
+    document.getElementById("grid").innerHTML = list.map(p => `
+      <div class="poke" data-id="${p.id}">
+        <img loading="lazy" src="${art(p.id, shinyDex)}" alt="${p.name}" ${shinyFallback}>
+        <div class="num">${pad(p.id)}</div>
+        <div class="name">${pretty(p.name)}</div>
+      </div>`).join("");
+    document.getElementById("dex-status").textContent = list.length ? "" : "No Pokémon found.";
+  }
+  document.getElementById("search").addEventListener("input", renderDex);
+  document.getElementById("gen").addEventListener("change", renderDex);
+  document.getElementById("grid").addEventListener("click", (e) => {
+    const card = e.target.closest(".poke"); if (card) openDetail(Number(card.dataset.id));
+  });
+
+  /* ================= Detail popup ================= */
+  const modal = document.getElementById("modal");
+  const REGIONAL = /\((Alolan|Galarian|Hisuian|Paldean)/;
+  // Every form with its own look: Alolan/Galarian..., Oricorio styles, Rotom, Deoxys, Megas
+  function regionalForms(dex) {
+    const all = GO ? GO.mons.filter(m => m.d === dex && !isShadow(m)) : [];
+    const forms = all.filter(m => FORM_ART[m.id]);
+    if (forms.length) forms.unshift(...all.filter(m => !FORM_ART[m.id] && !m.g.includes("purified")).slice(0, 1)); // the usual form first, e.g. Oricorio (Baile)
+    const label = (m) => (m.n.match(/\(([^)]*)\)/) || [, "Normal"])[1];
+    return forms.length ? `<h4 class="forms-title">${forms.slice(1).every(m => REGIONAL.test(m.n)) ? "Regional forms" : "Forms"}</h4><div class="forms">${forms.map(m => `
+      <div class="form-mon" data-form-open="${m.id}" data-dex-of="${dex}" title="Show this form"><img loading="lazy" src="${monArt(m, shinyDex)}" alt="${m.n}" ${shinyFallback}><div>${label(m)}</div><div>${m.t.map(typeBadge).join("")}</div></div>`).join("")}</div>` : "";
+  }
+  document.getElementById("modal-body").addEventListener("click", (e) => {
+    const f = e.target.closest("[data-form-open]"); if (f) openDetail(Number(f.dataset.dexOf), f.dataset.formOpen);
+  });
+  async function openDetail(id, formId) {
+    const body = document.getElementById("modal-body");
+    body.innerHTML = `<div class="status">Loading…</div>`;
+    modal.classList.add("open");
+    try {
+      // Opened from a counter card: show that exact form (Alolan, Galarian, Mega...) with its own stats
+      const formArt = formId && FORM_ART[formId.replace(/_shadow$/, "")], form = formArt && GO && monById[formId];
+      const p = await getPokemon(form ? formArt : id, id);
+      body.innerHTML = `
+        <img id="detail-img" src="${form ? monArt(form, shinyDex) : art(p.id, shinyDex)}" alt="${p.name}" ${shinyFallback}>
+        <div style="text-align:center"><button class="btn light shiny-toggle" id="shiny-toggle">${shinyDex ? "Normal colors" : "✨ See shiny"}</button></div>
+        <div class="num" style="text-align:center;color:var(--muted)">${pad(id)}</div>
+        <h3>${form ? form.n.replace(/\s*\(Shadow\)/, "") : pretty(p.name)}</h3>
+        <div class="types">${(form ? form.t : p.types).map(typeBadge).join("")}</div>
+        <p class="flavor">${p.flavor}</p>
+        <div class="facts"><div><b>${p.height} m</b>Height</div><div><b>${p.weight} kg</b>Weight</div></div>
+        ${p.stats.map(s => `
+          <div class="stat"><span>${pretty(s.name).replace("special", "sp.")}</span><b>${s.value}</b>
+            <div class="track"><div class="fill" style="width:${Math.min(100, s.value / 2)}%"></div></div></div>`).join("")}
+        ${regionalForms(id)}
+        <div class="actions">
+          <button class="btn" id="raid-this">GO counters</button>
+          <button class="btn light" id="detail-prev">← Prev</button>
+          <button class="btn light" id="detail-next">Next →</button>
+        </div>`;
+      document.getElementById("shiny-toggle").onclick = (e) => {
+        const img = document.getElementById("detail-img"), on = !img.src.includes("/shiny/");
+        img.onerror = on ? () => { img.onerror = null; img.src = img.src.replace("/shiny/", "/"); e.target.textContent = "No shiny picture yet"; } : null;
+        img.src = on ? img.src.replace("/official-artwork/", "/official-artwork/shiny/") : img.src.replace("/shiny/", "/");
+        e.target.textContent = on ? "Normal colors" : "✨ See shiny";
+      };
+      document.getElementById("raid-this").onclick = () => { modal.classList.remove("open"); countersFor(id, form && form.id); };
+      document.getElementById("detail-prev").onclick = () => openDetail(id > 1 ? id - 1 : 1025);
+      document.getElementById("detail-next").onclick = () => openDetail(id < 1025 ? id + 1 : 1);
+    } catch (e) {
+      body.innerHTML = `<div class="status">Couldn't load this Pokémon. Check your internet connection.</div>`;
+    }
+  }
+  document.getElementById("modal-close").onclick = () => modal.classList.remove("open");
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.remove("open"); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") modal.classList.remove("open"); });
+
+  /* ================= Counters (Pokémon GO) ================= */
+  const GO = window.GO_DATA || null;
+  const TYPES = Object.keys(TYPE_COLORS);
+  // Attacking type -> defending types it is super effective / not very effective / no effect against
+  const CHART = {
+    normal:   { se: [], nve: ["rock","steel"], no: ["ghost"] },
+    fire:     { se: ["grass","ice","bug","steel"], nve: ["fire","water","rock","dragon"], no: [] },
+    water:    { se: ["fire","ground","rock"], nve: ["water","grass","dragon"], no: [] },
+    electric: { se: ["water","flying"], nve: ["electric","grass","dragon"], no: ["ground"] },
+    grass:    { se: ["water","ground","rock"], nve: ["fire","grass","poison","flying","bug","dragon","steel"], no: [] },
+    ice:      { se: ["grass","ground","flying","dragon"], nve: ["fire","water","ice","steel"], no: [] },
+    fighting: { se: ["normal","ice","rock","dark","steel"], nve: ["poison","flying","psychic","bug","fairy"], no: ["ghost"] },
+    poison:   { se: ["grass","fairy"], nve: ["poison","ground","rock","ghost"], no: ["steel"] },
+    ground:   { se: ["fire","electric","poison","rock","steel"], nve: ["grass","bug"], no: ["flying"] },
+    flying:   { se: ["grass","fighting","bug"], nve: ["electric","rock","steel"], no: [] },
+    psychic:  { se: ["fighting","poison"], nve: ["psychic","steel"], no: ["dark"] },
+    bug:      { se: ["grass","psychic","dark"], nve: ["fire","fighting","poison","flying","ghost","steel","fairy"], no: [] },
+    rock:     { se: ["fire","ice","flying","bug"], nve: ["fighting","ground","steel"], no: [] },
+    ghost:    { se: ["psychic","ghost"], nve: ["dark"], no: ["normal"] },
+    dragon:   { se: ["dragon"], nve: ["steel"], no: ["fairy"] },
+    dark:     { se: ["psychic","ghost"], nve: ["fighting","dark","fairy"], no: [] },
+    steel:    { se: ["ice","rock","fairy"], nve: ["fire","water","electric","steel"], no: [] },
+    fairy:    { se: ["fighting","dragon","dark"], nve: ["fire","poison","steel"], no: [] }
+  };
+  // Pokémon GO multipliers: super effective 1.6x, resisted 0.625x, "immune" is a double resist (0.390625x)
+  function goMult(atkType, defTypes) {
+    return defTypes.reduce((m, d) => {
+      const c = CHART[atkType];
+      return m * (c.se.includes(d) ? 1.6 : c.no.includes(d) ? 0.390625 : c.nve.includes(d) ? 0.625 : 1);
+    }, 1);
+  }
+  const isShadow = (m) => m.g.includes("shadow");
+  const isMega = (m) => m.g.includes("mega");
+  const isLegend = (m) => m.g.some(t => t === "legendary" || t === "mythical" || t === "ultrabeast");
+  // Alolan, Galarian, Hisuian, Paldean, Mega and other forms have their own artwork (PokéAPI form ids)
+  const FORM_ART = {"abomasnow_mega":10060,"absol_mega":10057,"aerodactyl_mega":10042,"aggron_mega":10053,"alakazam_mega":10037,"altaria_mega":10067,"ampharos_mega":10045,"arcanine_hisuian":10230,"articuno_galarian":10169,"audino_mega":10069,"avalugg_hisuian":10243,"banette_mega":10056,"beedrill_mega":10090,"blastoise_mega":10036,"blaziken_mega":10050,"braviary_hisuian":10240,"camerupt_mega":10087,"castform_rainy":10014,"castform_snowy":10015,"castform_sunny":10013,"charizard_mega_x":10034,"charizard_mega_y":10035,"chesnaught_mega":10292,"corsola_galarian":10173,"darmanitan_galarian_standard":10177,"darumaka_galarian":10176,"decidueye_hisuian":10244,"delphox_mega":10293,"deoxys_attack":10001,"deoxys_defense":10002,"deoxys_speed":10003,"dialga_origin":10245,"diancie_mega":10075,"diglett_alolan":10105,"dragonite_mega":10281,"dugtrio_alolan":10106,"electrode_hisuian":10232,"enamorus_therian":10249,"exeggutor_alolan":10114,"falinks_mega":10303,"farfetchd_galarian":10166,"gallade_mega":10068,"garchomp_mega":10058,"gardevoir_mega":10051,"gengar_mega":10038,"geodude_alolan":10109,"giratina_origin":10007,"glalie_mega":10074,"golem_alolan":10111,"gourgeist_large":10031,"gourgeist_small":10030,"gourgeist_super":10032,"graveler_alolan":10110,"greninja_mega":10294,"grimer_alolan":10112,"groudon_primal":10078,"growlithe_hisuian":10229,"gyarados_mega":10041,"heracross_mega":10047,"hoopa_unbound":10086,"houndoom_mega":10048,"indeedee_female":10186,"kangaskhan_mega":10039,"keldeo_resolute":10024,"kyogre_primal":10077,"kyurem_black":10022,"kyurem_white":10023,"landorus_therian":10021,"latias_mega":10062,"latios_mega":10063,"lilligant_hisuian":10237,"linoone_galarian":10175,"lopunny_mega":10088,"lucario_mega":10059,"lycanroc_dusk":10152,"lycanroc_midnight":10126,"malamar_mega":10297,"manectric_mega":10055,"marowak_alolan":10115,"mawile_mega":10052,"medicham_mega":10054,"meowstic_female":10025,"meowth_alolan":10107,"meowth_galarian":10161,"metagross_mega":10076,"mewtwo_mega_x":10043,"mewtwo_mega_y":10044,"moltres_galarian":10171,"mr_mime_galarian":10168,"muk_alolan":10113,"ninetales_alolan":10104,"oinkologne_female":10254,"oricorio_pau":10124,"oricorio_pom_pom":10123,"oricorio_sensu":10125,"palkia_origin":10246,"persian_alolan":10108,"pidgeot_mega":10073,"pikachu_libre":10084,"pikachu_pop_star":10082,"pikachu_rock_star":10080,"pinsir_mega":10040,"ponyta_galarian":10162,"pumpkaboo_large":10028,"pumpkaboo_small":10027,"pumpkaboo_super":10029,"qwilfish_hisuian":10234,"raichu_alolan":10100,"raichu_mega_x":10304,"raichu_mega_y":10305,"rapidash_galarian":10163,"raticate_alolan":10092,"rattata_alolan":10091,"rayquaza_mega":10079,"rotom_fan":10011,"rotom_frost":10010,"rotom_heat":10008,"rotom_mow":10012,"rotom_wash":10009,"sableye_mega":10066,"salamence_mega":10089,"samurott_hisuian":10236,"sandshrew_alolan":10101,"sandslash_alolan":10102,"sceptile_mega":10065,"scizor_mega":10046,"sharpedo_mega":10070,"shaymin_sky":10006,"skarmory_mega":10284,"slowbro_galarian":10165,"slowbro_mega":10071,"slowking_galarian":10172,"slowpoke_galarian":10164,"sneasel_hisuian":10235,"staraptor_mega":10308,"starmie_mega":10280,"steelix_mega":10072,"stunfisk_galarian":10180,"swampert_mega":10064,"tatsugiri_droopy":10258,"tatsugiri_stretchy":10259,"thundurus_therian":10020,"tornadus_therian":10019,"typhlosion_hisuian":10233,"tyranitar_mega":10049,"urshifu_rapid_strike":10191,"venusaur_mega":10033,"victreebel_mega":10279,"voltorb_hisuian":10231,"vulpix_alolan":10103,"weezing_galarian":10167,"wooper_paldean":10253,"wormadam_sandy":10004,"wormadam_trash":10005,"yamask_galarian":10179,"zapdos_galarian":10170,"zigzagoon_galarian":10174,"zoroark_hisuian":10239,"zorua_hisuian":10238,"zygarde_10":10181,"zygarde_complete":10120};
+  const monArt = (m, shiny) => art(FORM_ART[m.id.replace(/_shadow$/, "")] || m.d, shiny);
+  function cpmAt(level) { // the game lists one multiplier per whole level; half levels sit in between
+    const lo = GO.cpm[Math.floor(level) - 1];
+    if (Number.isInteger(level)) return lo;
+    const hi = GO.cpm[Math.floor(level)];
+    return Math.sqrt((lo * lo + hi * hi) / 2);
+  }
+  // Effective stats at a level and IVs; shadows hit 20% harder and take 20% more damage
+  function statsOf(m, level, ivA, ivD, ivS) {
+    const c = cpmAt(level);
+    return { atk: (m.s[0] + ivA) * c * (isShadow(m) ? 1.2 : 1), def: (m.s[1] + ivD) * c * (isShadow(m) ? 5/6 : 1),
+             hp: Math.max(10, Math.floor((m.s[2] + ivS) * c)) };
+  }
+  const maxStats = (m) => statsOf(m, 40, 15, 15, 15);
+  const stab = (m, type) => m.t.includes(type) ? 1.2 : 1;
+  // How hard the opponent hits this Pokémon (assumes the opponent mostly uses moves of its own types)
+  const incoming = (m, oppTypes) => Math.max(...oppTypes.map(t => goMult(t, m.t)));
+  const moveName = (id) => (GO.moves[id] || {}).n || id;
+
+  let monById = {}, ctrMode = "raid";
+  if (GO) GO.mons.forEach(m => monById[m.id] = m);
+
+  function filters() {
+    return { shadow: document.getElementById("f-shadow").checked, mega: document.getElementById("f-mega").checked,
+             legend: document.getElementById("f-legend").checked, elite: document.getElementById("f-elite").checked };
+  }
+  function allowed(m, f) {
+    return (f.shadow || !isShadow(m)) && (f.mega || !isMega(m)) && (f.legend || !isLegend(m));
+  }
+  function movesOf(m, f) {
+    const ok = (id) => f.elite || !m.el.includes(id);
+    return { fast: m.f.filter(ok), charged: m.c.filter(ok) };
+  }
+  const eliteTag = (m, ids) => ids.some(id => m.el.includes(id)) ? ` <span class="elite">Elite TM</span>` : "";
+
+  /* ---- Raids and Mega raids: best moveset DPS, weighted by how long the Pokémon survives ---- */
+  function raidCounters(boss, f) {
+    const bossDef = (boss.s[1] + 15) * 0.79;
+    const res = [];
+    for (const m of GO.mons) {
+      if (!allowed(m, f) || m.id === boss.id) continue;
+      const s = maxStats(m), mv = movesOf(m, f);
+      let best = null;
+      for (const fi of mv.fast) {
+        const fm = GO.moves[fi]; if (!fm || fm.e == null || !(fm.ee > 0)) continue;
+        const fd = Math.floor(0.5 * fm.e * s.atk / bossDef * stab(m, fm.t) * goMult(fm.t, boss.t)) + 1;
+        for (const ci of mv.charged) {
+          const cm = GO.moves[ci]; if (!cm || cm.e == null || !(cm.ee < 0)) continue;
+          const cd = Math.floor(0.5 * cm.e * s.atk / bossDef * stab(m, cm.t) * goMult(cm.t, boss.t)) + 1;
+          const n = Math.ceil(-cm.ee / fm.ee);
+          const dps = (n * fd + cd) / ((n * fm.ed + cm.ed) / 1000);
+          if (!best || dps > best.dps) best = { dps, fi, ci };
+        }
+      }
+      if (!best) continue;
+      const tankiness = s.hp * s.def / incoming(m, boss.t);
+      res.push({ m, dps: best.dps, score: best.dps * Math.pow(tankiness, 0.25), moves: [best.fi, best.ci],
+                 note: `${moveName(best.fi)} + ${moveName(best.ci)}${eliteTag(m, [best.fi, best.ci])}`, sub: `${best.dps.toFixed(1)} DPS` });
+    }
+    return res.sort((a, b) => b.score - a.score);
+  }
+
+  /* ---- Max Battles: only Pokémon that can Dynamax/Gigantamax. Max Moves take their type from the fast move ---- */
+  function maxCounters(boss, f) {
+    const bossDef = (boss.s[1] + 15) * 0.79;
+    const attackers = [], tanks = [];
+    for (const m of GO.mons) {
+      if (!m.x || m.id === boss.id) continue;
+      const s = maxStats(m), mv = movesOf(m, f);
+      const tank = s.hp * s.def / incoming(m, boss.t);
+      tanks.push({ m, score: tank, note: `Takes ${incoming(m, boss.t) < 1 ? "reduced" : incoming(m, boss.t) > 1 ? "extra" : "normal"} damage from ${boss.n}`,
+                   sub: m.x === 2 ? "Gigantamax" : "Dynamax" });
+      let best = null;
+      for (const fi of mv.fast) {
+        const fm = GO.moves[fi]; if (!fm) continue;
+        const power = m.x === 2 && m.t.includes(fm.t) ? 350 : 250; // G-Max Moves hit harder than Max Strike
+        const dmg = Math.floor(0.5 * power * s.atk / bossDef * stab(m, fm.t) * goMult(fm.t, boss.t)) + 1;
+        if (!best || dmg > best.dmg) best = { dmg, fi, power };
+      }
+      if (!best) continue;
+      attackers.push({ m, score: best.dmg * Math.pow(tank, 0.15), moves: [best.fi],
+                       note: `${moveName(best.fi)} → ${best.power === 350 ? "G-Max" : "Max"} ${best.fi && GO.moves[best.fi].t}${eliteTag(m, [best.fi])}`,
+                       sub: `${best.dmg} dmg per Max Move`, x: m.x });
+    }
+    return { attackers: attackers.sort((a, b) => b.score - a.score), tanks: tanks.sort((a, b) => b.score - a.score) };
+  }
+
+  /* ---- Trainer battles (Rocket and GO Battle League): damage per turn and how long each side lasts ---- */
+  function pvpBest(me, meS, opp, oppS, f) {
+    const mv = f ? movesOf(me, f) : { fast: me.f, charged: me.c };
+    let best = null;
+    for (const fi of mv.fast) {
+      const fm = GO.moves[fi]; if (!fm || !(fm.pe > 0) || !fm.pt) continue;
+      const fd = Math.floor(0.5 * fm.pp * meS.atk / oppS.def * stab(me, fm.t) * goMult(fm.t, opp.t) * 1.3) + 1;
+      for (const ci of mv.charged) {
+        const cm = GO.moves[ci]; if (!cm || !(cm.pe < 0)) continue;
+        const cd = Math.floor(0.5 * cm.pp * meS.atk / oppS.def * stab(me, cm.t) * goMult(cm.t, opp.t) * 1.3) + 1;
+        const n = Math.ceil(-cm.pe / fm.pe);
+        const dpt = (n * fd + cd) / (n * fm.pt);
+        if (!best || dpt > best.dpt) best = { dpt, fi, ci };
+      }
+    }
+    return best;
+  }
+  function withMoveset(m, ids) { // limit a Pokémon to a known moveset, e.g. its GBL moveset
+    return ids ? Object.assign({}, m, { f: ids.slice(0, 1), c: ids.slice(1) }) : m;
+  }
+  function pvpMatch(me, meS, opp, oppS, f) {
+    const a = pvpBest(me, meS, opp, oppS, f), b = pvpBest(opp, oppS, me, meS, null);
+    if (!a) return null;
+    const myTime = oppS.hp / a.dpt, theirTime = b ? meS.hp / b.dpt : 99;
+    return { a, ratio: theirTime / myTime };
+  }
+
+  function rocketCounters(opp, f) {
+    const oppS = statsOf(opp, 40, 15, 15, 15);
+    const res = [];
+    for (const m of GO.mons) {
+      if (!allowed(m, f) || isMega(m)) continue; // Mega Evolution isn't allowed in Rocket battles
+      const r = pvpMatch(m, maxStats(m), opp, oppS, f);
+      if (!r) continue;
+      res.push({ m, score: r.ratio, moves: [r.a.fi, r.a.ci], note: `${moveName(r.a.fi)} + ${moveName(r.a.ci)}${eliteTag(m, [r.a.fi, r.a.ci])}`,
+                 sub: r.ratio >= 1.5 ? "Easy win" : r.ratio >= 1 ? "Wins" : "Close" });
+    }
+    return res.sort((a, b) => b.score - a.score);
+  }
+  const LEAGUES = { "1500": { name: "Great League", key: "cp1500" }, "2500": { name: "Ultra League", key: "cp2500" }, "10000": { name: "Master League", key: null } };
+  function leagueStats(m, league) {
+    const iv = LEAGUES[league].key && m.iv[LEAGUES[league].key];
+    return iv ? statsOf(m, iv[0], iv[1], iv[2], iv[3]) : statsOf(m, 50, 15, 15, 15);
+  }
+  function gblCounters(opp, league) {
+    const meta = GO.leagues[league];
+    const oppEntry = meta.find(e => e.id === opp.id);
+    const oppM = withMoveset(opp, oppEntry && oppEntry.m), oppS = leagueStats(opp, league);
+    const res = [];
+    for (const e of meta.slice(0, 200)) {
+      const m = monById[e.id]; if (!m || m.id === opp.id) continue;
+      const me = withMoveset(m, e.m);
+      const r = pvpMatch(me, leagueStats(m, league), oppM, oppS, null);
+      if (!r) continue;
+      res.push({ m, score: r.ratio, moves: e.m, note: e.m.map(moveName).join(", "), sub: r.ratio >= 1.5 ? "Strong counter" : r.ratio >= 1 ? "Wins" : "Close" });
+    }
+    return res.sort((a, b) => b.score - a.score);
+  }
+
+  /* ---- Page ---- */
+  const MODES = {
+    raid:   { label: "Raids", ph: "Type a raid boss, like Mewtwo or Kyogre…", popular: ["mewtwo","rayquaza","kyogre","groudon","dialga","palkia","giratina_origin","zekrom","reshiram","tyranitar"] },
+    mega:   { label: "Mega Raids", ph: "Type a Mega, like Mega Rayquaza…", popular: ["rayquaza_mega","gengar_mega","charizard_mega_y","gyarados_mega","salamence_mega","garchomp_mega","lucario_mega","gardevoir_mega"] },
+    max:    { label: "Max Battles", ph: "Type a Dynamax or Gigantamax boss…", popular: ["charizard","gengar","machamp","snorlax","lapras","kingler","toxtricity","zacian","zamazenta","eternatus"] },
+    rocket: { label: "Team GO Rocket", ph: "Type a leader's or Giovanni's Pokémon, like Shadow Tyranitar…", popular: ["tyranitar_shadow","dragonite_shadow","gyarados_shadow","swampert_shadow","snorlax_shadow","persian_shadow","kangaskhan_shadow","nidoking_shadow"] },
+    gbl:    { label: "GO Battle League", ph: "Type a Pokémon you keep losing to…", popular: [] }
+  };
+  function bossList() {
+    if (ctrMode === "mega") return GO.mons.filter(isMega);
+    if (ctrMode === "gbl") return GO.leagues[document.getElementById("gbl-league").value].map(e => monById[e.id]).filter(Boolean);
+    return GO.mons;
+  }
+  function setMode(mode) {
+    ctrMode = mode;
+    document.querySelectorAll("#ctr-tabs button").forEach(b => b.classList.toggle("active", b.dataset.mode === mode));
+    const M = MODES[mode];
+    document.getElementById("ctr-search").placeholder = M.ph;
+    document.getElementById("ctr-search").value = "";
+    document.getElementById("ctr-names").innerHTML = bossList().map(m => `<option value="${m.n}">`).join("");
+    document.getElementById("gbl-league").style.display = mode === "gbl" ? "" : "none";
+    document.getElementById("ctr-filters").style.display = mode === "gbl" ? "none" : "";
+    document.getElementById("grunts").style.display = mode === "rocket" ? "" : "none";
+    const pop = M.popular.map(id => monById[id]).filter(Boolean);
+    document.getElementById("ctr-suggest").innerHTML = pop.length ? "Popular: " + pop.map(m => `<button data-boss="${m.id}"><img class="mini-art" src="${monArt(m)}" alt="">${m.n}</button>`).join("") : "";
+    if (mode === "gbl") showMeta(); else document.getElementById("ctr-result").innerHTML = "";
+  }
+  function findMon(q) {
+    q = String(q).trim().toLowerCase(); if (!q) return null;
+    const list = bossList();
+    return list.find(m => m.id === q || m.n.toLowerCase() === q) || list.find(m => m.n.toLowerCase().startsWith(q)) ||
+           list.find(m => m.n.toLowerCase().includes(q)) || null;
+  }
+  function bossHeader(boss, extra) {
+    const mults = TYPES.map(t => ({ t, m: goMult(t, boss.t) }));
+    const row = (label, list) => list.length ? `<div class="weak-row"><b>${label}</b>${list.map(x => typeBadge(x.t)).join("")}</div>` : "";
+    return `<div class="raid-box raid-boss">
+        <img src="${monArt(boss)}" alt="${boss.n}">
+        <div>
+          <h3>${boss.n}</h3>
+          <div style="margin-bottom:8px">${boss.t.map(typeBadge).join("")}</div>
+          ${row("Very weak to", mults.filter(x => x.m > 2))}${row("Weak to", mults.filter(x => x.m > 1.5 && x.m <= 2))}${row("Resists", mults.filter(x => x.m < 1))}
+          ${extra || ""}
+        </div>
+      </div>`;
+  }
+  function cards(list, n) {
+    if (!list.length) return `<div class="status">No counters found with these filters.</div>`;
+    const top = list[0].score;
+    return `<div class="counters">${list.slice(0, n).map((r, i) => `
+      <div class="counter" data-dex="${r.m.d}" data-form="${r.m.id}">
+        <span class="rank">#${i + 1}</span>
+        ${isShadow(r.m) ? `<span class="tag shadow">Shadow</span>` : isMega(r.m) ? `<span class="tag mega">Mega</span>` : r.m.x === 2 ? `<span class="tag mega">G-Max</span>` : ""}
+        <img loading="lazy" src="${monArt(r.m)}" alt="${r.m.n}">
+        <div class="name">${r.m.n}</div>
+        <div>${r.m.t.map(typeBadge).join("")}</div>
+        <div class="why">${r.note}</div>
+        <div class="why"><b>${r.sub}</b></div>
+        <div class="meter"><div style="width:${Math.max(4, Math.round(r.score / top * 100))}%"></div></div>
+      </div>`).join("")}</div>`;
+  }
+  function showCounters(query, grunt) {
+    const out = document.getElementById("ctr-result");
+    if (!GO) { out.innerHTML = `<div class="status">The Pokémon GO data file (go-data.js) is missing. Keep it in the same folder as index.html.</div>`; return; }
+    const f = filters();
+    let boss;
+    if (grunt) boss = { id: "grunt-" + grunt, n: grunt[0].toUpperCase() + grunt.slice(1) + "-type Grunt", d: 0, t: [grunt], s: [180, 160, 180], f: [], c: [], el: [], g: ["shadow"], x: 0 };
+    else boss = findMon(query);
+    if (!boss) { out.innerHTML = `<div class="status">Couldn't find "${query}". Try picking a name from the list as you type.</div>`; return; }
+    if (!grunt) document.getElementById("ctr-search").value = boss.n;
+    let html = "";
+    if (ctrMode === "raid" || ctrMode === "mega") {
+      html = bossHeader(boss) + `<h2>Best attackers</h2>` + cards(raidCounters(boss, f), 30) +
+        `<p class="note">Ranked by damage per second with each Pokémon's best moves (level 40, perfect IVs), adjusted for how long it survives. Mega and Shadow Pokémon hit harder, so turn them off above if you don't have them.</p>`;
+    } else if (ctrMode === "max") {
+      const r = maxCounters(boss, f);
+      html = bossHeader(boss) + `<h2>Best Max attackers</h2>` + cards(r.attackers, 18) +
+        `<h2 style="margin-top:24px">Best tanks (use Max Guard)</h2>` + cards(r.tanks, 12) +
+        `<p class="note">Only Pokémon that can Dynamax or Gigantamax are shown. A Max Move's type comes from the fast move, so the fast move listed is the one to use. Very new Max Pokémon may not be released yet.</p>`;
+    } else if (ctrMode === "rocket") {
+      const header = grunt ? `<div class="raid-box"><h3 style="margin:0 0 6px">${boss.n}</h3>${typeBadge(grunt)} <span class="note">Grunts use Shadow Pokémon of this type. Their Shadow Pokémon take extra damage.</span></div>`
+                           : bossHeader(boss, `<div class="note">Leaders and Giovanni change their teams often, so look up each Pokémon they send out.</div>`);
+      html = header + `<h2>Best counters</h2>` + cards(rocketCounters(boss, f), 24) +
+        `<p class="note">Rocket battles work like trainer battles, so these are ranked by damage per turn and how long your Pokémon lasts against this opponent.</p>`;
+    } else if (ctrMode === "gbl") {
+      const league = document.getElementById("gbl-league").value;
+      const entry = GO.leagues[league].find(e => e.id === boss.id);
+      const tough = entry ? entry.c.map(id => monById[id]).filter(Boolean) : [];
+      html = bossHeader(boss, entry ? `<div class="weak-row"><b>Usual moves</b>${entry.m.map(moveName).join(", ")}</div>` : "") +
+        (tough.length ? `<h2>Hardest matchups for ${boss.n}</h2><div class="suggest">${tough.map(m => `<button data-dex-open="${m.d}" data-form="${m.id}"><img class="mini-art" src="${monArt(m)}" alt="">${m.n}</button>`).join("")}</div>` : "") +
+        `<h2 style="margin-top:16px">Best ${LEAGUES[league].name} counters</h2>` + cards(gblCounters(boss, league), 24) +
+        `<p class="note">Picked from the top of the ${LEAGUES[league].name} with their usual moves and league stats, ranked by who deals more damage before fainting. Shields and timing can change real battles.</p>`;
+    }
+    out.innerHTML = html;
+    window.scrollTo({ top: out.offsetTop - 80, behavior: "smooth" });
+  }
+  function showMeta() {
+    const league = document.getElementById("gbl-league").value;
+    const meta = GO.leagues[league].slice(0, 30).map(e => ({ m: monById[e.id], score: e.r, note: e.m.map(moveName).join(", "), sub: `Rating ${e.r}` })).filter(r => r.m);
+    document.getElementById("ctr-result").innerHTML = `<h2>Top 30 in ${LEAGUES[league].name}</h2>` + cards(meta, 30) +
+      `<p class="note">Search a Pokémon above to see what beats it.</p>`;
+  }
+
+  if (GO) {
+    document.getElementById("ctr-tabs").innerHTML = Object.entries(MODES).map(([k, v]) => `<button data-mode="${k}">${v.label}</button>`).join("");
+    document.getElementById("grunts").innerHTML = "Grunts: " + TYPES.map(t => `<button data-grunt="${t}" style="background:${TYPE_COLORS[t]};color:#fff">${t}</button>`).join("");
+    document.getElementById("ctr-updated").textContent = `Pokémon GO data from ${GO.updated}.`;
+    document.getElementById("ctr-tabs").addEventListener("click", (e) => { const m = e.target.dataset.mode; if (m) setMode(m); });
+    document.getElementById("gbl-league").addEventListener("change", () => { setMode("gbl"); });
+    document.querySelectorAll("#ctr-filters input").forEach(i => i.addEventListener("change", () => {
+      const q = document.getElementById("ctr-search").value; if (q && ctrMode !== "gbl") showCounters(q);
+    }));
+    setMode("raid");
+  }
+  document.getElementById("ctr-go").onclick = () => showCounters(document.getElementById("ctr-search").value);
+  document.getElementById("ctr-search").addEventListener("keydown", (e) => { if (e.key === "Enter") showCounters(e.target.value); });
+  document.getElementById("ctr-suggest").addEventListener("click", (e) => { const b = e.target.closest("[data-boss]"); if (b) showCounters(b.dataset.boss); });
+  document.getElementById("grunts").addEventListener("click", (e) => { const t = e.target.dataset.grunt; if (t) showCounters(null, t); });
+  document.getElementById("ctr-result").addEventListener("click", (e) => {
+    const c = e.target.closest("[data-dex],[data-dex-open]"); if (!c) return;
+    openDetail(Number(c.dataset.dex || c.dataset.dexOpen), c.dataset.form);
+  });
+  function countersFor(dex, formId) { // from the Pokédex popup (formId when it shows an Alolan, Galarian, Mega... form)
+    if (!GO) return;
+    const f = formId && monById[formId.replace(/_shadow$/, "")];
+    go("raids"); const mode = f && isMega(f) ? "mega" : "raid"; if (ctrMode !== mode) setMode(mode);
+    const m = f || GO.mons.find(x => x.d === dex && !isShadow(x) && !isMega(x)) || GO.mons.find(x => x.d === dex);
+    if (m) showCounters(m.id); else document.getElementById("ctr-result").innerHTML = `<div class="status">This Pokémon isn't in Pokémon GO yet.</div>`;
+  }
+
+  /* ================= Pokémon GO Events ================= */
+  // Live event list scraped from LeekDuck by the ScrapedDuck project, refreshed regularly
+  const EVENTS_URL = "https://raw.githubusercontent.com/bigfoott/ScrapedDuck/data/events.json";
+  const EVENT_KINDS = {
+    raids:  { label: "Raids", types: ["raid-battles", "raid-hour", "raid-day", "raid-weekend", "elite-raids"] },
+    max:    { label: "Max Battles", types: ["max-battles", "max-mondays"] },
+    cd:     { label: "Community Day", types: ["community-day"] },
+    spot:   { label: "Spotlight Hour", types: ["pokemon-spotlight-hour"] },
+    gbl:    { label: "GO Battle League", types: ["go-battle-league"] },
+    rocket: { label: "Team GO Rocket", types: ["team-go-rocket", "go-rocket-takeover", "giovanni-special-research"] },
+    big:    { label: "Big events", types: ["event", "pokemon-go-tour", "pokemon-go-fest", "wild-area", "city-safari", "season", "go-pass", "research", "special-research", "timed-research", "twitch-drops"] }
+  };
+  const KIND_COLORS = { raids: "#e74c3c", max: "#c2185b", cd: "#27ae60", spot: "#f39c12", gbl: "#2980b9", rocket: "#34495e", big: "#7a4fa3" };
+  let events = null, eventsLoading = false, eventFilter = "all";
+
+  const kindOf = (ev) => Object.keys(EVENT_KINDS).find(k => EVENT_KINDS[k].types.includes(ev.eventType)) || "big";
+  // Times ending in "Z" are the same moment worldwide; the rest happen at local time wherever you are
+  const parseTime = (s) => s ? new Date(s) : null;
+  const fmtDay = (d) => d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  const fmtTime = (d) => d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  function fmtRange(a, b) {
+    if (!b) return `${fmtDay(a)}, ${fmtTime(a)}`;
+    return a.toDateString() === b.toDateString() ? `${fmtDay(a)}, ${fmtTime(a)} – ${fmtTime(b)}` : `${fmtDay(a)}, ${fmtTime(a)} – ${fmtDay(b)}, ${fmtTime(b)}`;
+  }
+  function untilText(ms) {
+    const m = Math.round(ms / 60000), h = Math.floor(m / 60), d = Math.floor(h / 24);
+    return d >= 1 ? `${d}d ${h % 24}h` : h >= 1 ? `${h}h ${m % 60}m` : `${Math.max(1, m)}m`;
+  }
+  // Match names like "Mega Charizard X" or "Giratina (Origin Forme)" to the Pokémon GO data
+  const nameKey = (s) => s.toLowerCase().replace(/forme?|\(|\)|,|’|'/g, " ").split(/\s+/).filter(Boolean).sort().join(" ");
+  let monByKey = null;
+  function matchMon(name) {
+    if (!GO) return null;
+    if (!monByKey) { monByKey = {}; GO.mons.forEach(m => { const k = nameKey(m.n); if (!monByKey[k]) monByKey[k] = m; }); }
+    return monByKey[nameKey(name)] || monByKey[nameKey(name.replace(/\(normal\)/i, ""))] || null;
+  }
+  function maxBossesIn(name) { // "Dynamax Sableye during Max Monday" -> Sableye
+    if (!GO) return [];
+    const words = " " + name.toLowerCase().replace(/[^a-z0-9é ]/g, " ") + " ";
+    const hits = GO.mons.filter(m => m.x && words.includes(" " + m.n.toLowerCase() + " "));
+    return hits.filter(m => !hits.some(o => o !== m && o.n.length > m.n.length && o.n.includes(m.n)));
+  }
+
+  async function loadEvents(force) {
+    const box = document.getElementById("events-list");
+    if (events && !force) { renderEvents(); return; }
+    if (eventsLoading) return;
+    eventsLoading = true;
+    box.innerHTML = `<div class="status">Loading events…</div>`;
+    try {
+      const r = await fetch(EVENTS_URL + "?t=" + Date.now());
+      events = (await r.json()).map(ev => Object.assign(ev, { s: parseTime(ev.start), e: parseTime(ev.end), kind: kindOf(ev) }));
+      renderEvents();
+    } catch (e) {
+      box.innerHTML = `<div class="status">Couldn't load the event schedule. Check your internet connection and try again.</div>`;
+    }
+    eventsLoading = false;
+  }
+  function eventCard(ev, now) {
+    const live = ev.s <= now && (!ev.e || ev.e > now);
+    const when = live ? (ev.e ? `Ends in ${untilText(ev.e - now)}` : "Happening now") : `Starts in ${untilText(ev.s - now)}`;
+    const raid = ev.extraData && ev.extraData.raidbattles;
+    let bosses = raid ? raid.bosses.map(b => ({ label: b.name, mon: matchMon(b.name), img: b.image, shiny: b.canBeShiny })) : [];
+    if (!bosses.length && ev.kind === "max") bosses = maxBossesIn(ev.name).map(m => ({ label: m.n, mon: m }));
+    const mode = ev.kind === "max" ? "max" : "raid";
+    const bossHtml = bosses.length ? `<div class="ev-bosses">${bosses.map(b => b.mon
+        ? `<button data-ctr="${b.mon.id}" data-mode="${isMega(b.mon) ? "mega" : mode}" title="See counters">${b.img ? `<img src="${b.img}" alt="">` : ""}${b.label}${b.shiny ? " ✨" : ""} ⚔️</button>`
+        : `<span>${b.label}</span>`).join("")}</div>` : "";
+    return `<div class="ev ${live ? "live" : ""}">
+      <img class="ev-img" loading="lazy" src="${ev.image}" alt="" onerror="this.style.display='none'">
+      <div class="ev-body">
+        <span class="ev-kind" style="background:${KIND_COLORS[ev.kind]}">${ev.heading || EVENT_KINDS[ev.kind].label}</span>
+        <h3>${ev.name}</h3>
+        <div class="ev-time">${fmtRange(ev.s, ev.e)}</div>
+        <div class="ev-when">${live ? "🟢 " : "⏳ "}${when}</div>
+        ${bossHtml}
+        <a href="${ev.link}" target="_blank" rel="noopener">Details on LeekDuck ↗</a>
+      </div>
+    </div>`;
+  }
+  function renderEvents() {
+    const now = new Date();
+    const list = events.filter(ev => ev.s && (!ev.e || ev.e > now) && (eventFilter === "all" || ev.kind === eventFilter));
+    const live = list.filter(ev => ev.s <= now).sort((a, b) => (a.e || Infinity) - (b.e || Infinity));
+    const soon = list.filter(ev => ev.s > now).sort((a, b) => a.s - b.s);
+    let html = "";
+    if (live.length) html += `<h2>Happening now</h2><div class="ev-grid">${live.map(ev => eventCard(ev, now)).join("")}</div>`;
+    let lastDay = "";
+    if (soon.length) {
+      html += `<h2 style="margin-top:24px">Coming up</h2>`;
+      soon.forEach(ev => {
+        const day = ev.s.toDateString();
+        if (day !== lastDay) { html += `${lastDay ? "</div>" : ""}<h3 class="ev-day">${fmtDay(ev.s)}</h3><div class="ev-grid">`; lastDay = day; }
+        html += eventCard(ev, now);
+      });
+      html += "</div>";
+    }
+    document.getElementById("events-list").innerHTML = html || `<div class="status">No events of this kind right now.</div>`;
+  }
+  document.getElementById("ev-filters").innerHTML = `<button data-kind="all" class="active">All</button>` +
+    Object.entries(EVENT_KINDS).map(([k, v]) => `<button data-kind="${k}">${v.label}</button>`).join("");
+  document.getElementById("ev-filters").addEventListener("click", (e) => {
+    const k = e.target.dataset.kind; if (!k) return;
+    eventFilter = k;
+    document.querySelectorAll("#ev-filters button").forEach(b => b.classList.toggle("active", b.dataset.kind === k));
+    if (events) renderEvents();
+  });
+  document.getElementById("ev-refresh").onclick = () => loadEvents(true);
+  document.getElementById("events-list").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-ctr]"); if (!b) return;
+    go("raids"); setMode(b.dataset.mode); showCounters(b.dataset.ctr);
+  });
+  setInterval(() => { if (events && document.getElementById("events").classList.contains("show")) renderEvents(); }, 60000);
+
+  /* ================= Right Now (Pokémon GO) ================= */
+  const FEED = "https://raw.githubusercontent.com/bigfoott/ScrapedDuck/data/";
+  // How exciting each kind of event is, for picking the highlights
+  const EVENT_PRIORITY = { "community-day": 10, "pokemon-go-tour": 10, "pokemon-go-fest": 10, "raid-day": 9, "raid-hour": 8, "max-battles": 8,
+    "pokemon-spotlight-hour": 7, "max-mondays": 7, "elite-raids": 8, "raid-weekend": 8, "wild-area": 7, "event": 6, "raid-battles": 5,
+    "go-rocket-takeover": 6, "research": 3, "go-battle-league": 3, "go-pass": 2, "season": 1 };
+  let nowData = null, nowLoading = false;
+  const getJSON = (name) => fetch(FEED + name + ".json?t=" + Date.now()).then(r => r.json());
+
+  async function loadNow(force) {
+    if (nowData && !force) { renderNow(); return; }
+    if (nowLoading) return;
+    nowLoading = true;
+    document.getElementById("now-body").innerHTML = `<div class="status">Checking what's happening…</div>`;
+    const [ev, raids, rocket, research, eggs] = await Promise.all(["events", "raids", "rocketLineups", "research", "eggs"].map(n => getJSON(n).catch(() => null)));
+    if (ev) events = ev.map(e => Object.assign(e, { s: parseTime(e.start), e: parseTime(e.end), kind: kindOf(e) }));
+    nowData = { raids, rocket, research, eggs };
+    nowLoading = false;
+    if (!events && !raids) { document.getElementById("now-body").innerHTML = `<div class="status">Couldn't load. Check your internet connection and try again.</div>`; return; }
+    renderNow();
+  }
+  // A Pokémon chip; tapping one with GO data opens its counters
+  function chip(name, img, opts = {}) {
+    const mon = opts.mon !== undefined ? opts.mon : matchMon(name);
+    const inner = `${img ? `<img src="${img}" alt="" loading="lazy">` : ""}${name}${opts.shiny ? " ✨" : ""}${opts.extra || ""}`;
+    return mon && opts.mode ? `<button class="chip" data-ctr="${mon.id}" data-mode="${opts.mode}" title="See counters">${inner} ⚔️</button>`
+                            : `<span class="chip">${inner}</span>`;
+  }
+  function renderNow() {
+    const now = new Date(), soon = new Date(+now + 36 * 3600e3);
+    let html = "";
+
+    // 1. Highlights: the best events running now or starting in the next day and a half
+    if (events) {
+      // Skip in-person events (their times are set for one city) and plain raid listings, which have their own section below
+      const hot = events.filter(ev => ev.s && ev.s < soon && (!ev.e || ev.e > now) && !/Z$/.test(ev.start || "") && ev.eventType !== "raid-battles" && ev.eventType !== "city-safari" &&
+          !(/wild-area|pokemon-go-tour|pokemon-go-fest/.test(ev.eventType) && !/global/i.test(ev.name)))
+        .map(ev => ({ ev, score: (EVENT_PRIORITY[ev.eventType] || 4) + (ev.s <= now ? 1 : 0) + (ev.e && ev.e - now < 12 * 3600e3 ? 1 : 0) }))
+        .filter(x => x.score >= 5).sort((a, b) => b.score - a.score || a.ev.s - b.ev.s).slice(0, 6);
+      html += `<h2>⭐ Don't miss</h2>` + (hot.length ? `<div class="ev-grid">${hot.map(x => eventCard(x.ev, now)).join("")}</div>`
+                                                    : `<div class="status">Nothing big right now. Check the Events page for what's coming.</div>`);
+    }
+
+    // 2. Most likely wild spawns
+    html += spawnSection(now);
+
+    // 3. Raid bosses right now, best tiers first
+    if (nowData.raids && nowData.raids.length) {
+      const order = ["5-Star Raids", "Mega Raids", "Shadow Raids", "3-Star Raids", "1-Star Raids"];
+      const tiers = [...new Set(nowData.raids.map(r => r.tier))].sort((a, b) => (order.indexOf(a) + 99) % 99 - (order.indexOf(b) + 99) % 99 || a.localeCompare(b));
+      html += `<h2 style="margin-top:28px">⚔️ Raid bosses now</h2><div class="now-box">` + tiers.map(t => {
+        const list = nowData.raids.filter(r => r.tier === t);
+        return `<div class="now-row"><b>${t.replace(" Raids", "")}</b><div class="chips">${list.map(r => {
+          const mon = matchMon(r.name);
+          const cp = r.combatPower && r.combatPower.normal ? ` <small>CP ${r.combatPower.normal.max}${r.combatPower.boosted ? ` / ${r.combatPower.boosted.max}` : ""}</small>` : "";
+          return chip(r.name, r.image, { mon, shiny: r.canBeShiny, extra: cp, mode: mon && isMega(mon) ? "mega" : "raid" });
+        }).join("")}</div></div>`;
+      }).join("") + `<p class="note">CP shown is a perfect catch (normal / weather boosted). ✨ means it can be shiny. Tap a boss for counters.</p></div>`;
+    }
+
+    // 4. Team GO Rocket leaders and Giovanni
+    if (nowData.rocket && nowData.rocket.length) {
+      const leaders = nowData.rocket.filter(l => /Giovanni|Cliff|Arlo|Sierra/.test(l.name));
+      const slot = (list) => list.map(p => chip(p.name, p.image, { mon: matchMon("Shadow " + p.name) || matchMon(p.name), mode: "rocket", extra: p.isEncounter ? " 🎁" : "" })).join("");
+      html += `<h2 style="margin-top:28px">🚀 Rocket leaders' teams</h2><div class="now-box">` + leaders.map(l => `
+        <div class="now-row"><b>${l.name}</b><div class="lineup">
+          <div><small>1st</small><div class="chips">${slot(l.firstPokemon)}</div></div>
+          <div><small>2nd</small><div class="chips">${slot(l.secondPokemon)}</div></div>
+          <div><small>3rd</small><div class="chips">${slot(l.thirdPokemon)}</div></div>
+        </div></div>`).join("") + `<p class="note">🎁 is the Shadow Pokémon you can catch after winning. Tap any Pokémon for counters.</p></div>`;
+    }
+
+    // 5. Field research with a guaranteed encounter
+    if (nowData.research && nowData.research.length) {
+      const tasks = nowData.research.filter(t => t.rewards && t.rewards.length && t.rewards.length <= 3)
+        .sort((a, b) => a.rewards.length - b.rewards.length).slice(0, 12);
+      if (tasks.length) html += `<h2 style="margin-top:28px">📋 Research tasks worth grabbing</h2><div class="now-box">` + tasks.map(t => `
+        <div class="now-row"><b class="task">${t.text.replace(/<[^>]+>/g, "")}</b><div class="chips">${t.rewards.map(r => chip(r.name, r.image, { shiny: r.canBeShiny })).join("")}</div></div>`).join("") + `</div>`;
+    }
+
+    // 6. Rarest egg hatches
+    if (nowData.eggs && nowData.eggs.length) {
+      const kms = [...new Set(nowData.eggs.map(e => e.eggType))].sort((a, b) => parseFloat(b) - parseFloat(a));
+      html += `<h2 style="margin-top:28px">🥚 Egg hatches</h2><div class="now-box">` + kms.map(km => {
+        const list = nowData.eggs.filter(e => e.eggType === km).sort((a, b) => (a.rarity || 9) - (b.rarity || 9));
+        return `<div class="now-row"><b>${km}</b><div class="chips">${list.map(e => chip(e.name, e.image, { shiny: e.canBeShiny, extra: (e.rarity || 9) <= 1 ? " <small>rare</small>" : "" })).join("")}</div></div>`;
+      }).join("") + `<p class="note">Rarest hatches are listed first in each egg.</p></div>`;
+    }
+
+    document.getElementById("now-body").innerHTML = html;
+    document.getElementById("now-updated").textContent = "Updated " + fmtTime(now);
+  }
+  // Picture for a spawn name like "Zubat wearing a top hat" or "Minior (Meteor Form)"
+  function spawnMon(name) {
+    const base = name.replace(/\s+wearing.*$/i, "").trim();
+    return matchMon(base) || matchMon(base.replace(/\s*\(.*\)/, "")) || null;
+  }
+  function spawnChip(sp) {
+    const mon = spawnMon(sp.n);
+    return chip(sp.n, mon ? monArt(mon) : "", { mon: null, shiny: sp.s, extra: sp.r ? ` <small>rare</small>` : "" });
+  }
+  function spawnSection(now) {
+    const groups = [];
+    const saved = (window.EVENT_SPAWNS && window.EVENT_SPAWNS.events) || {};
+    const live = (events || []).filter(ev => ev.s && ev.s <= now && (!ev.e || ev.e > now));
+    for (const ev of live) {
+      const ed = ev.extraData || {};
+      if (ed.communityday && ed.communityday.spawns) groups.push({ title: ev.name, list: ed.communityday.spawns.map(p => ({ n: p.name, s: true })), boost: "Community Day: tons of these!" });
+      if (ed.spotlight && ed.spotlight.list) groups.push({ title: ev.name, list: ed.spotlight.list.map(p => ({ n: p.name, s: p.canBeShiny })), boost: ed.spotlight.bonus ? "Bonus: " + ed.spotlight.bonus : "" });
+      for (const g of saved[ev.eventID] || []) {
+        const active = !g.hours || g.hours.includes(now.getHours());
+        groups.push({ title: ev.name + (g.label ? " · " + g.label : ""), list: g.list, boost: g.hours ? (active ? "Happening this hour" : "At " + g.hours.map(h => (h % 12 || 12) + (h < 12 ? "am" : "pm")).join(", ")) : "", dim: !active });
+      }
+    }
+    let html = `<h2 style="margin-top:28px">🌿 Most likely to spawn</h2><div class="now-box">`;
+    if (groups.length) {
+      groups.sort((a, b) => (a.dim ? 1 : 0) - (b.dim ? 1 : 0));
+      html += groups.map(g => `<div class="now-row${g.dim ? " dim" : ""}"><b class="task">${g.title}${g.boost ? `<br><small class="note">${g.boost}</small>` : ""}</b>
+        <div class="chips">${g.list.map(spawnChip).join("")}</div></div>`).join("");
+    } else {
+      // Nothing boosted right now: show the next event that has spawns
+      const next = (events || []).filter(ev => ev.s > now && (saved[ev.eventID] || (ev.extraData || {}).communityday)).sort((a, b) => a.s - b.s)[0];
+      html += `<p class="note">No events are boosting spawns right now, so you'll see the usual seasonal Pokémon.</p>`;
+      if (next) {
+        const list = saved[next.eventID] ? saved[next.eventID].flatMap(g => g.list) : next.extraData.communityday.spawns.map(p => ({ n: p.name, s: true }));
+        html += `<div class="now-row"><b class="task">Next up: ${next.name}<br><small class="note">Starts ${fmtDay(next.s)}</small></b><div class="chips">${list.map(spawnChip).join("")}</div></div>`;
+      }
+    }
+    return html + `<p class="note">✨ can be shiny. Boosted spawns come from LeekDuck's event pages${window.EVENT_SPAWNS ? ` (saved ${window.EVENT_SPAWNS.updated})` : ""}; Community Day and Spotlight Hour spawns update live.</p></div>`;
+  }
+  document.getElementById("now-refresh").onclick = () => loadNow(true);
+  document.getElementById("now-body").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-ctr]"); if (!b) return;
+    go("raids"); setMode(b.dataset.mode); showCounters(b.dataset.ctr);
+  });
+  setInterval(() => { if (nowData && document.getElementById("now").classList.contains("show")) renderNow(); }, 60000);
+
+  /* ================= GO Tools ================= */
+  const toolMons = GO ? GO.mons.filter(m => !isMega(m)) : [];
+  function findToolMon(q) {
+    q = String(q || "").trim().toLowerCase(); if (!q) return null;
+    return toolMons.find(m => m.n.toLowerCase() === q || m.id === q) || toolMons.find(m => m.n.toLowerCase().startsWith(q)) || toolMons.find(m => m.n.toLowerCase().includes(q));
+  }
+  function setTool(tool) {
+    document.querySelectorAll("#tool-tabs button").forEach(b => b.classList.toggle("active", b.dataset.tool === tool));
+    document.querySelectorAll(".tool").forEach(t => t.style.display = t.id === "tool-" + tool ? "" : "none");
+  }
+
+  /* ---- IV & league rank ---- */
+  const cpOf = (m, lvl, a, d, s) => { const c = cpmAt(lvl); return Math.max(10, Math.floor((m.s[0] + a) * Math.sqrt(m.s[1] + d) * Math.sqrt(m.s[2] + s) * c * c / 10)); };
+  const LEVELS = []; for (let l = 1; l <= 50; l += 0.5) LEVELS.push(l);
+  // Highest level (up to 50) that stays under the CP cap, and the stat product there (what PvP rank is based on)
+  function bestUnderCap(m, a, d, s, cap) {
+    let best = null;
+    for (const l of LEVELS) { if (cpOf(m, l, a, d, s) <= cap) best = l; else break; }
+    if (!best) return null;
+    const c = cpmAt(best);
+    return { level: best, cp: cpOf(m, best, a, d, s), sp: (m.s[0] + a) * c * (m.s[1] + d) * c * Math.floor((m.s[2] + s) * c) };
+  }
+  function leagueRank(m, a, d, s, cap) {
+    const mine = bestUnderCap(m, a, d, s, cap); if (!mine) return null;
+    let better = 0, top = null;
+    for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++) for (let z = 0; z < 16; z++) {
+      const r = bestUnderCap(m, x, y, z, cap); if (!r) continue;
+      if (r.sp > mine.sp) better++;
+      if (!top || r.sp > top.sp) top = Object.assign({ iv: [x, y, z] }, r);
+    }
+    return { mine, rank: better + 1, top, pct: mine.sp / top.sp * 100 };
+  }
+  function renderIV() {
+    const out = document.getElementById("iv-result");
+    const m = findToolMon(document.getElementById("iv-mon").value);
+    const a = +document.getElementById("iv-a").value, d = +document.getElementById("iv-d").value, s = +document.getElementById("iv-s").value;
+    ["a", "d", "s"].forEach(k => document.getElementById("iv-" + k + "-v").textContent = document.getElementById("iv-" + k).value);
+    const pct = Math.round((a + d + s) / 45 * 100);
+    const stars = a + d + s === 45 ? "⭐⭐⭐ (hundo!)" : a + d + s >= 37 ? "⭐⭐⭐" : a + d + s >= 30 ? "⭐⭐" : a + d + s >= 23 ? "⭐" : "No stars";
+    document.getElementById("iv-pct").textContent = `${pct}% · ${stars}`;
+    if (!m) { out.innerHTML = `<div class="status">Pick a Pokémon to see its CP and league ranks.</div>`; return; }
+    const lv = [[15, "Research reward"], [20, "Raid / egg / catch"], [25, "Weather boosted"], [30, "Max wild catch"], [40, "Level 40"], [50, "Level 50 (with XL Candy)"]];
+    const gl = leagueRank(m, a, d, s, 1500), ul = leagueRank(m, a, d, s, 2500);
+    const league = (name, r) => !r ? `<div class="iv-league"><b>${name}</b><span class="note">Too strong even at level 1.</span></div>` :
+      `<div class="iv-league"><b>${name}</b>
+        <div class="iv-rank ${r.rank <= 10 ? "great" : r.rank <= 100 ? "good" : ""}">Rank #${r.rank} <small>of 4,096</small></div>
+        <div>${r.pct.toFixed(1)}% of the best · CP ${r.mine.cp} at level ${r.mine.level}</div>
+        <div class="note">#1 is ${r.top.iv.join(" / ")} at level ${r.top.level} (CP ${r.top.cp})</div></div>`;
+    out.innerHTML = `
+      <div class="raid-box raid-boss" style="margin-top:16px">
+        <img src="${monArt(m)}" alt="${m.n}">
+        <div><h3>${m.n}</h3><div>${m.t.map(typeBadge).join("")}</div>
+          <div class="note" style="margin-top:6px">GO base stats: Attack ${m.s[0]} · Defense ${m.s[1]} · Stamina ${m.s[2]}</div></div>
+      </div>
+      <div class="iv-grid">
+        <div class="raid-box"><h3 style="margin-top:0">CP by level</h3>
+          ${lv.map(([l, why]) => `<div class="iv-row"><span>${why}</span><b>CP ${cpOf(m, l, a, d, s)}</b></div>`).join("")}
+          <div class="iv-row"><span>Weather boosted raid catch</span><b>CP ${cpOf(m, 25, a, d, s)}</b></div>
+        </div>
+        <div class="raid-box"><h3 style="margin-top:0">GO Battle League</h3>${league("Great League (1,500)", gl)}${league("Ultra League (2,500)", ul)}</div>
+      </div>
+      <p class="note">League rank compares all 4,096 IV combinations by stat product, up to level 50.${isShadow(m) ? " Shadow bonuses aren't counted in the rank." : ""}</p>`;
+  }
+
+  /* ---- Evolution & candy ---- */
+  let preEvo = null;
+  function evoChainOf(m) {
+    if (!preEvo) { preEvo = {}; Object.entries(GO.evo).forEach(([id, e]) => (e.ev || []).forEach(r => { if (!preEvo[r.to]) preEvo[r.to] = { from: id, r }; })); }
+    let base = m.id.replace(/_shadow$/, "");
+    for (let i = 0; i < 4 && preEvo[base]; i++) base = preEvo[base].from;
+    return base;
+  }
+  function renderEvo() {
+    const out = document.getElementById("evo-result");
+    const m = findToolMon(document.getElementById("evo-mon").value);
+    if (!m) { out.innerHTML = `<div class="status">Pick a Pokémon to see how it evolves.</div>`; return; }
+    document.getElementById("evo-mon").value = m.n;
+    const base = evoChainOf(m), me = m.id.replace(/_shadow$/, "");
+    const node = (id) => { const x = monById[id]; return x ? `<div class="evo-mon ${id === me ? "me" : ""}"><img src="${monArt(x)}" alt=""><div>${x.n}</div><div>${x.t.map(typeBadge).join("")}</div></div>` : `<div class="evo-mon">${pretty(id)}</div>`; };
+    function tree(id, depth) {
+      const e = GO.evo[id] || {};
+      const kids = (e.ev || []).filter((r, i, arr) => arr.findIndex(o => o.to === r.to) === i);
+      if (!kids.length || depth > 3) return node(id);
+      return `<div class="evo-step">${node(id)}<div class="evo-kids">${kids.map(r => `
+        <div class="evo-branch">
+          <div class="evo-arrow">➜ <b>${r.c} candy</b>${r.cp ? ` <small>(${r.cp} if purified)</small>` : ""}${(r.r || []).map(t => `<span class="evo-req">${t}</span>`).join("")}</div>
+          ${tree(r.to, depth + 1)}
+        </div>`).join("")}</div></div>`;
+    }
+    const e = GO.evo[me] || GO.evo[base] || {};
+    const facts = [];
+    if (e.km) facts.push(`<div class="iv-row"><span>Buddy walking distance</span><b>${e.km} km per candy</b></div>`);
+    if (e.tm) facts.push(`<div class="iv-row"><span>Unlock a second charged move</span><b>${fmtNum(e.tm[0])} stardust + ${e.tm[1]} candy</b></div>`);
+    (e.mg || []).forEach(g => facts.push(`<div class="iv-row"><span>${g[0] === "Mega" ? "Mega Evolve" : g[0]}</span><b>${g[1]} Mega Energy (then ${g[2]})</b></div>`));
+    out.innerHTML = `<div class="raid-box evo-tree">${tree(base, 0)}</div>` + (facts.length ? `<div class="raid-box"><h3 style="margin-top:0">${m.n} costs</h3>${facts.join("")}</div>` : "");
+  }
+
+  if (GO) {
+    document.getElementById("tool-names").innerHTML = toolMons.map(m => `<option value="${m.n}">`).join("");
+    ["iv-mon", "evo-mon"].forEach(id => document.getElementById(id).addEventListener("change", id === "iv-mon" ? renderIV : renderEvo));
+    document.getElementById("evo-mon").addEventListener("keydown", e => { if (e.key === "Enter") renderEvo(); });
+    document.getElementById("iv-mon").addEventListener("keydown", e => { if (e.key === "Enter") renderIV(); });
+    ["iv-a", "iv-d", "iv-s"].forEach(id => document.getElementById(id).addEventListener("input", renderIV));
+    document.getElementById("tool-tabs").addEventListener("click", e => { const t = e.target.dataset.tool; if (t) setTool(t); });
+    renderIV(); renderEvo(); setTool("iv");
+  }
+
+  /* ================= Fun ================= */
+  const rnd = (n) => Math.floor(Math.random() * n);
+  const pick = (arr) => arr[rnd(arr.length)];
+  const funPool = GO ? GO.mons.filter(m => !isMega(m) && !isShadow(m)) : [];
+  const commonPool = funPool.filter(m => !isLegend(m));
+  function setFun(tab) {
+    document.querySelectorAll("#fun-tabs button").forEach(b => b.classList.toggle("active", b.dataset.fun === tab));
+    document.querySelectorAll(".fun").forEach(t => t.style.display = t.id === "fun-" + tab ? "" : "none");
+    if (tab === "catch") { startCatchLoop(); if (!wild) spawnWild(); } else stopCatchLoop();
+    if (tab === "raid") { raidGame.start(); if (!raid) newRaid(); raidStats(); } else raidGame.stop();
+    if (tab === "stop") stopGame.start(); else stopGame.stop();
+    if (tab === "berry") { berryGame.start(); if (!berry) newBerry(); } else berryGame.stop();
+    if (tab === "eggs") loadEggs();
+    if (tab === "collection") renderCollection();
+  }
+
+  /* ---- Collection (shared by the catch game and egg hatcher) ---- */
+  function loadCol() { try { return JSON.parse(localStorage.getItem("ditto-collection")) || []; } catch (e) { return []; } }
+  function saveCol(c) { try { localStorage.setItem("ditto-collection", JSON.stringify(c.slice(-500))); } catch (e) {} }
+  function addToCol(entry) { const c = loadCol(); c.push(Object.assign({ when: Date.now() }, entry)); saveCol(c); }
+  const randomIVs = (min) => [0, 0, 0].map(() => min + rnd(16 - min));
+  /* Candy: transferring a Pokémon to the Professor gives 1 candy for its family, and candy pays for evolutions */
+  function loadCandy() { try { return JSON.parse(localStorage.getItem("ditto-candy")) || {}; } catch (e) { return {}; } }
+  function saveCandy(c) { try { localStorage.setItem("ditto-candy", JSON.stringify(c)); } catch (e) {} }
+  const colMon = (x) => (GO && (GO.mons.find(m => m.n === x.n) || GO.mons.find(m => m.d === x.d && !isMega(m) && !isShadow(m)))) || null;
+  function familyOf(x) {
+    const m = colMon(x); if (!m) return { key: x.n, name: x.n };
+    const base = evoChainOf(m), bm = monById[base];
+    return { key: (GO.evo[base] && GO.evo[base].f) || base, name: bm ? bm.n.replace(/\s*\(.*\)/, "") : x.n };
+  }
+  function nextEvos(x) {
+    const m = colMon(x); if (!m) return [];
+    const e = GO.evo[m.id.replace(/_shadow$/, "")] || {};
+    return (e.ev || []).filter((r, i, arr) => monById[r.to] && arr.findIndex(o => o.to === r.to) === i);
+  }
+  let colSelecting = false, colSelected = new Set();
+  function renderCollection() {
+    const c = loadCol(), f = document.getElementById("col-filter").value, candy = loadCandy();
+    const list = c.map((x, i) => Object.assign({ i }, x)).filter(x => f === "all" || (f === "shiny" && x.shiny) || (f === "hundo" && x.iv && x.iv.join() === "15,15,15")).reverse();
+    const species = new Set(c.map(x => x.n)).size, totalCandy = Object.values(candy).reduce((a, b) => a + b, 0);
+    document.getElementById("col-stats").innerHTML = `
+      <div><b>${c.length}</b><span>Pokémon</span></div><div><b>${species}</b><span>Different species</span></div>
+      <div><b>${c.filter(x => x.shiny).length}</b><span>Shiny ✨</span></div><div><b>${c.filter(x => x.iv && x.iv.join() === "15,15,15").length}</b><span>Hundos 💯</span></div>
+      <div><b>${totalCandy}</b><span>Candy 🍬</span></div>`;
+    document.getElementById("col-select").textContent = colSelecting ? "Cancel" : "Select";
+    document.getElementById("col-transfer-sel").style.display = colSelecting ? "" : "none";
+    document.getElementById("col-transfer-sel").textContent = `Transfer ${colSelected.size} selected`;
+    document.getElementById("col-transfer-sel").disabled = !colSelected.size;
+    document.getElementById("col-grid").innerHTML = list.length ? list.map(x => {
+      const fam = familyOf(x), have = candy[fam.key] || 0;
+      const evo = nextEvos(x).map(r => `<button class="col-evolve" data-evolve="${x.i}" data-to="${r.to}" ${have >= r.c ? "" : "disabled"} title="${(r.r || []).join(", ")}">Evolve → ${monById[r.to].n} (${r.c} 🍬)</button>`).join("");
+      return `<div class="col-mon ${x.shiny ? "shiny" : ""} ${colSelected.has(x.i) ? "picked" : ""}" ${colSelecting ? `data-pick="${x.i}"` : ""}>
+        ${colSelecting ? `<span class="col-check">${colSelected.has(x.i) ? "✔" : ""}</span>` : ""}
+        <img loading="lazy" src="${x.img || (colMon(x) ? monArt(colMon(x), x.shiny) : art(x.d, x.shiny))}" alt="" ${shinyFallback}>
+        <div class="name">${x.shiny ? "✨ " : ""}${x.n}</div>
+        <div class="note">CP ${x.cp}${x.iv ? ` · ${Math.round((x.iv[0] + x.iv[1] + x.iv[2]) / 45 * 100)}%` : ""}</div>
+        <div class="note">${x.from === "egg" ? "🥚 Hatched" : "🎯 Caught"} · 🍬 ${have} ${fam.name}</div>
+        ${colSelecting ? "" : `<div class="col-actions">${evo}<button class="col-transfer" data-transfer="${x.i}">Transfer</button></div>`}
+      </div>`; }).join("") : `<div class="status">Nothing here yet. Go catch some Pokémon or hatch some eggs!</div>`;
+  }
+  const isSpecial = (x) => x.shiny || (x.iv && x.iv.join() === "15,15,15");
+  function transfer(indexes) {
+    const c = loadCol(), candy = loadCandy(), picked = indexes.map(i => c[i]).filter(Boolean);
+    if (!picked.length) return;
+    const special = picked.filter(isSpecial);
+    const what = picked.length === 1 ? picked[0].n : `${picked.length} Pokémon`;
+    if (!confirm(`Transfer ${what} to the Professor?${special.length ? `\n\nHeads up: that includes ${special.length === 1 ? "a" : special.length} shiny or hundo Pokémon!` : ""}\n\nYou'll get 1 candy for each one.`)) return;
+    picked.forEach(x => { const k = familyOf(x).key; candy[k] = (candy[k] || 0) + 1; });
+    saveCandy(candy);
+    saveCol(c.filter((x, i) => !indexes.includes(i)));
+    colSelected.clear(); colSelecting = false;
+    beep(880, 0.1, "triangle", 0.08); setTimeout(() => beep(1320, 0.12, "triangle", 0.08), 90);
+    document.getElementById("col-msg").textContent = `Transferred ${what}. The Professor sent you ${picked.length} candy! 🍬`;
+    renderCollection();
+  }
+  function evolve(i, to) {
+    const c = loadCol(), x = c[i], target = monById[to]; if (!x || !target) return;
+    const fam = familyOf(x), candy = loadCandy(), r = nextEvos(x).find(e => e.to === to);
+    if (!r || (candy[fam.key] || 0) < r.c) return;
+    candy[fam.key] -= r.c; saveCandy(candy);
+    const old = colMon(x), iv = x.iv || [10, 10, 10];
+    // Keep the same level and IVs, like a real evolution
+    let level = 20; if (old) { let best = 1e9; for (let l = 1; l <= 50; l += 0.5) { const d = Math.abs(cpOf(old, l, ...iv) - x.cp); if (d < best) { best = d; level = l; } } }
+    c[i] = Object.assign({}, x, { n: target.n, d: target.d, img: "", cp: cpOf(target, level, ...iv) });
+    saveCol(c);
+    [523, 659, 784, 1047].forEach((f, k) => setTimeout(() => beep(f, 0.15, "triangle", 0.09), k * 120));
+    document.getElementById("col-msg").textContent = `Congratulations! Your ${x.n} evolved into ${target.n}! (CP ${c[i].cp})${r.r && r.r.length ? ` In the real game it also needs: ${r.r.join(", ")}.` : ""}`;
+    renderCollection();
+  }
+
+  /* ---- Catch game: Throw button, timing ring, scanner HUD ---- */
+  // Master Balls are rare (1 per perfect PokéStop spin), so they're saved and Restock doesn't refill them
+  const loadMaster = () => { try { return +localStorage.getItem("ditto-master-balls") || 0; } catch (e) { return 0; } };
+  const saveMaster = () => { try { localStorage.setItem("ditto-master-balls", String(balls.master)); } catch (e) {} };
+  let wild = null, balls = { poke: 30, great: 15, ultra: 10, master: loadMaster() }, ballType = "poke", soundOn = true;
+  const BALLS = { poke: { n: "Poké Ball", m: 1 }, great: { n: "Great Ball", m: 1.5 }, ultra: { n: "Ultra Ball", m: 2 }, master: { n: "Master Ball", m: Infinity } };
+  // Classic Poké Ball drawing: colored top, white bottom, black band and a white button in the middle
+  function ballSVG(type, size) {
+    const top = { poke: "#e3350d", great: "#3b6fd8", ultra: "#2b2b2b", master: "#7b2fbf" }[type];
+    const extra = type === "master" ? `<circle cx="24" cy="30" r="9" fill="#e85aa8"/><circle cx="76" cy="30" r="9" fill="#e85aa8"/>
+                  <path d="M37 40 L37 18 L44 18 L50 28 L56 18 L63 18 L63 40 L57 40 L57 29 L50 38 L43 29 L43 40 Z" fill="#fff"/>`
+                : type === "great" ? `<path d="M14 30 Q20 12 34 8 L30 22 Z M86 30 Q80 12 66 8 L70 22 Z" fill="#e3350d"/>`
+                : type === "ultra" ? `<path d="M33 9 L33 44 L43 44 L43 30 L57 30 L57 44 L67 44 L67 9 L57 7 L57 22 L43 22 L43 7 Z" fill="#f6c915"/>` : "";
+    return `<svg xmlns="http://www.w3.org/2000/svg" class="ball-svg" width="${size}" height="${size}" viewBox="0 0 100 100" aria-hidden="true">
+      <defs><clipPath id="bt-${type}-${size}"><circle cx="50" cy="50" r="46"/></clipPath></defs>
+      <g clip-path="url(#bt-${type}-${size})">
+        <rect x="0" y="0" width="100" height="50" fill="${top}"/>${extra}
+        <rect x="0" y="50" width="100" height="50" fill="#f5f5f5"/>
+        <path d="M8 62 Q50 84 92 62 L92 96 L8 96 Z" fill="#dcdcdc"/>
+        <ellipse cx="32" cy="24" rx="12" ry="7" fill="#fff" opacity=".35" transform="rotate(-30 32 24)"/>
+      </g>
+      <rect x="2" y="45" width="96" height="10" fill="#1d1d1d"/>
+      <circle cx="50" cy="50" r="46" fill="none" stroke="#1d1d1d" stroke-width="6"/>
+      <circle cx="50" cy="50" r="15" fill="#1d1d1d"/>
+      <circle cx="50" cy="50" r="10" fill="#fff" stroke="#bbb" stroke-width="2"/>
+    </svg>`;
+  }
+  const ballImgs = {};
+  Object.keys(BALLS).forEach(k => { const i = new Image(); i.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(ballSVG(k, 200)); ballImgs[k] = i; });
+
+  /* Sounds, made on the fly with the Web Audio API */
+  let audio = null;
+  function beep(freq, dur, type = "sine", vol = 0.15, slide = 0) {
+    if (!soundOn) return;
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime;
+      o.type = type; o.frequency.setValueAtTime(freq, t);
+      if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), t + dur);
+      g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      o.connect(g).connect(audio.destination); o.start(t); o.stop(t + dur);
+    } catch (e) {}
+  }
+  const SFX = {
+    throw: () => beep(500, 0.25, "triangle", 0.12, 600),
+    spin: () => beep(900, 0.06, "square", 0.04),
+    hit: () => { beep(180, 0.15, "square", 0.1); beep(1200, 0.3, "sine", 0.08, -900); },
+    wobble: () => beep(140, 0.08, "square", 0.12),
+    miss: () => beep(300, 0.3, "sawtooth", 0.06, -200),
+    caught: () => [660, 880, 1320].forEach((f, i) => setTimeout(() => beep(f, 0.18, "triangle", 0.12), i * 110)),
+    flee: () => beep(400, 0.5, "sawtooth", 0.07, -320),
+    shiny: () => [1500, 2000, 2600].forEach((f, i) => setTimeout(() => beep(f, 0.12, "sine", 0.06), i * 80)),
+    bonus: () => beep(1046, 0.15, "triangle", 0.1)
+  };
+
+  /* Scene state */
+  const cv = document.getElementById("catch-canvas"), cx = cv.getContext("2d");
+  let W = 0, H = 0, dpr = 1, monImg = new Image(), scene = null, particles = [], popups = [], lastT = 0, loopOn = false;
+  function resizeCanvas() {
+    dpr = window.devicePixelRatio || 1;
+    const r = cv.getBoundingClientRect(); W = r.width; H = r.height;
+    cv.width = W * dpr; cv.height = H * dpr; cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  const restBall = () => ({ x: W / 2, y: H - 70, s: 1, rot: 0 });
+  const monPos = () => ({ x: W / 2, y: H * 0.38, r: Math.min(W, H) * 0.2 });
+  function spawnWild() {
+    const legendary = Math.random() < 0.04;
+    const m = legendary ? pick(funPool.filter(isLegend)) : pick(commonPool);
+    const iv = randomIVs(legendary ? 10 : 0), level = legendary ? 20 : 1 + rnd(30);
+    const total = m.s[0] + m.s[1] + m.s[2];
+    const base = legendary ? 0.06 : total > 600 ? 0.12 : total > 450 ? 0.25 : 0.45; // tougher Pokémon are harder to catch
+    wild = { m, iv, level, cp: cpOf(m, level, ...iv), shiny: Math.random() < 1 / 40, base, fails: 0, legendary };
+    monImg = new Image(); monImg.onerror = () => { if (wild.shiny && !monImg.src.endsWith(monArt(m))) monImg.src = monArt(m); };
+    monImg.src = monArt(m, wild.shiny);
+    scene = { state: "idle", ball: restBall(), mon: { scale: 0, alpha: 1, flash: 0, jump: 0 }, t0: performance.now(), ring: 0 };
+    document.getElementById("catch-msg").textContent = wild.shiny ? "Whoa, it's shiny! Don't let it get away!" : legendary ? "A legendary Pokémon appeared!" : "Tap Throw when the colored ring is small!";
+    if (wild.shiny) setTimeout(SFX.shiny, 300);
+    updateChance();
+  }
+  function ringColor() { return wild.base < 0.1 ? "#ff4d4d" : wild.base < 0.2 ? "#ff9f1a" : wild.base < 0.3 ? "#ffd31a" : "#2ef27a"; }
+  function ringScale(t) { return 1 - ((t % 1700) / 1700) * 0.8; }
+  function chanceFor(bonus) { if (ballType === "master") return 1; return Math.min(0.97, wild.base * BALLS[ballType].m * bonus * (1 + wild.fails * 0.1)); }
+  function updateChance() {
+    if (!wild) return;
+    const c = chanceFor(1), best = chanceFor(1.85);
+    document.getElementById("chance-fill").style.width = c * 100 + "%";
+    document.getElementById("chance-best").style.width = best * 100 + "%";
+    document.getElementById("chance-text").textContent = ballType === "master" ? "Master Ball: it never fails!" : `Catch chance ${Math.round(c * 100)}% · up to ${Math.round(best * 100)}% with an Excellent throw`;
+  }
+  function burst(x, y, n, colors, speed = 4, life = 900) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, v = speed * (0.4 + Math.random());
+      particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1, life, max: life, c: pick(colors), r: 2 + Math.random() * 3, star: Math.random() < 0.4 });
+    }
+  }
+  function popup(text, color, y) { popups.push({ text, color, x: W / 2, y: y || H * 0.62, life: 1300, max: 1300 }); }
+
+  /* Throw button: the ball flies straight at the Pokémon; tap when the ring is small for a better throw */
+  function throwBall() {
+    if (!scene || scene.state !== "idle") return;
+    if (!balls[ballType]) { document.getElementById("catch-msg").textContent = "Out of these balls! Pick another or tap Restock."; return; }
+    launch(0, -2.2, 0);
+  }
+  cv.addEventListener("click", throwBall);
+
+  function launch(vx, vy, curve) {
+    balls[ballType]--; if (ballType === "master") saveMaster(); updateBalls(); SFX.throw();
+    const mp = monPos(), from = { x: scene.ball.x, y: scene.ball.y };
+    // Throw strength decides how far it flies: 1.0 reaches the Pokémon
+    const power = Math.min(1.6, -vy / 2.2);
+    const reach = from.y - (from.y - mp.y) * power;
+    const landX = from.x + vx * 260;
+    scene.flight = { from, landX, reach, curve, power, t: 0, dur: 700 + 250 * Math.min(power, 1.2) };
+    scene.state = "flight";
+  }
+  function resolveHit() {
+    const f = scene.flight, mp = monPos(), ring = ringScale(performance.now() - scene.t0);
+    const dx = Math.abs(f.landX - mp.x), dy = Math.abs(f.reach - mp.y);
+    if (dx > mp.r * 0.9 || dy > mp.r * 0.9) { // missed
+      SFX.miss(); popup("Missed!", "#ffffff");
+      document.getElementById("catch-msg").textContent = dx > mp.r * 0.9 ? "Missed to the side! Flick straighter." : f.reach > mp.y ? "Too short! Flick harder." : "Too far! Flick a little softer.";
+      scene.state = "miss"; scene.missT = 0; return;
+    }
+    const inRing = Math.hypot(dx, dy) < mp.r * ring * 0.95;
+    const [label, bonus] = !inRing ? ["", 1] : ring < 0.35 ? ["Excellent!", 1.85] : ring < 0.6 ? ["Great!", 1.5] : ring < 0.85 ? ["Nice!", 1.15] : ["", 1];
+    const curveBonus = f.curve ? 1.7 : 1;
+    if (label) { popup(label, label === "Excellent!" ? "#ffd31a" : label === "Great!" ? "#7fe3ff" : "#9dff9d"); SFX.bonus(); }
+    if (f.curve) popup("Curveball!", "#ff9ff3", H * 0.7);
+    SFX.hit();
+    const chance = chanceFor(bonus * curveBonus);
+    const caught = Math.random() < chance;
+    scene.result = { caught, shakes: caught ? 3 : rnd(3), label, curve: !!f.curve };
+    scene.state = "capture"; scene.capT = 0;
+    scene.ball.x = mp.x; scene.ball.y = mp.y;
+    burst(mp.x, mp.y, 24, ["#ffffff", "#bfe9ff", ringColor()], 5, 600);
+  }
+
+  function step(dt) {
+    const t = performance.now() - scene.t0, mp = monPos(), b = scene.ball;
+    scene.mon.scale = Math.min(1, scene.mon.scale + dt / 400);
+    if (scene.state === "idle") { scene.mon.jump = Math.sin(t / 300) * 6; b.y = H - 70 + Math.sin(t / 250) * 3; b.rot *= 0.95; }
+    if (scene.state === "flight") {
+      const f = scene.flight; f.t += dt / f.dur;
+      const k = Math.min(1, f.t), e = 1 - Math.pow(1 - k, 2);
+      const side = f.curve ? Math.sin(k * Math.PI) * 90 * f.curve : 0; // curveballs swing out and back in
+      b.x = f.from.x + (f.landX - f.from.x) * e + side;
+      b.y = f.from.y + (f.reach - f.from.y) * e - Math.sin(k * Math.PI) * 120 * Math.min(1, f.power);
+      b.s = 1 - 0.55 * e; b.rot += (f.curve ? 0.5 : 0.25) * dt / 16;
+      if (f.curve && Math.random() < 0.6) particles.push({ x: b.x, y: b.y, vx: 0, vy: 0, life: 300, max: 300, c: "#ff9ff3", r: 3, star: false });
+      if (k >= 1) resolveHit();
+    }
+    if (scene.state === "miss") {
+      scene.missT += dt; b.y += dt * 0.6; b.s *= 0.995; b.rot += 0.2;
+      if (scene.missT > 700) afterThrow();
+    }
+    if (scene.state === "capture") {
+      scene.capT += dt; const c = scene.capT, r = scene.result;
+      scene.mon.flash = Math.max(0, 1 - Math.abs(c - 200) / 200);
+      scene.mon.alpha = c < 350 ? 1 - c / 350 : 0;
+      if (c < 400) { b.rot *= 0.9; }
+      else if (c < 700) { b.y = mp.y + (mp.y + mp.r * 0.9 - mp.y) * ((c - 400) / 300); } // drop to the ground
+      else {
+        const wob = c - 700, i = Math.floor(wob / 900);
+        if (i < r.shakes) { const ph = (wob % 900) / 900; b.rot = ph < 0.5 ? Math.sin(ph * 2 * Math.PI * 2) * 0.5 : 0; if (wob % 900 < dt + 1) SFX.wobble(); }
+        else if (!r.done) { r.done = true; r.caught ? onCaught() : onBreakFree(); }
+      }
+    }
+    if (scene.state === "caught") { scene.caughtT += dt; if (scene.caughtT > 2200) spawnWild(); }
+    if (scene.state === "breakout") {
+      scene.boT += dt; scene.mon.alpha = Math.min(1, scene.boT / 200); scene.mon.flash = Math.max(0, 1 - scene.boT / 300);
+      if (scene.boT > 700) afterThrow();
+    }
+    particles.forEach(p => { p.x += p.vx * dt / 16; p.y += p.vy * dt / 16; p.vy += 0.05 * dt / 16; p.life -= dt; });
+    particles = particles.filter(p => p.life > 0);
+    popups.forEach(p => { p.y -= dt * 0.04; p.life -= dt; }); popups = popups.filter(p => p.life > 0);
+    if (wild.shiny && scene.mon.alpha > 0.5 && Math.random() < 0.08) particles.push({ x: mp.x + (Math.random() - .5) * mp.r * 2, y: mp.y + (Math.random() - .5) * mp.r * 2, vx: 0, vy: -0.3, life: 700, max: 700, c: "#fff6a8", r: 3, star: true });
+  }
+  function onCaught() {
+    const mp = monPos(); scene.state = "caught"; scene.caughtT = 0;
+    SFX.caught(); burst(mp.x, mp.y + mp.r * 0.9, 50, ["#ffd31a", "#ffffff", "#7fe3ff", "#ff9ff3"], 6, 1400);
+    const xp = 100 + (scene.result.label === "Excellent!" ? 1000 : scene.result.label === "Great!" ? 100 : scene.result.label === "Nice!" ? 10 : 0) + (scene.result.curve ? 10 : 0);
+    popup("Gotcha!", "#ffffff", H * 0.25); popup(`+${xp} XP`, "#ffd31a", H * 0.55);
+    document.getElementById("catch-msg").textContent = `${wild.shiny ? "✨ " : ""}${wild.m.n} was caught!`;
+    addToCol({ n: wild.m.n, d: wild.m.d, cp: wild.cp, iv: wild.iv, shiny: wild.shiny, from: "catch" });
+    bumpStat(scene.result.label);
+  }
+  function onBreakFree() {
+    const mp = monPos(); scene.state = "breakout"; scene.boT = 0; wild.fails++;
+    burst(mp.x, mp.y, 20, ["#ffffff", ringColor()], 4, 500);
+    document.getElementById("catch-msg").textContent = ["Argh! Almost had it!", "Aww! It appeared to be caught!", "Aargh! So close!"][scene.result.shakes];
+    beep(250, 0.2, "square", 0.08, 200);
+  }
+  function afterThrow() {
+    if (!isLegend(wild.m) && wild.fails > 0 && Math.random() < 0.06 + wild.fails * 0.03) {
+      SFX.flee(); document.getElementById("catch-msg").textContent = `Oh no! ${wild.m.n} fled!`;
+      scene.state = "fled"; scene.mon.alpha = 0; setTimeout(spawnWild, 1300); return;
+    }
+    scene.state = "idle"; scene.ball = restBall(); scene.mon.alpha = 1; updateChance();
+  }
+
+  function drawStar(x, y, r) {
+    cx.beginPath();
+    for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5 - Math.PI / 2, rr = i % 2 ? r * 0.45 : r; cx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+    cx.closePath(); cx.fill();
+  }
+  function draw() {
+    const t = performance.now() - scene.t0, mp = monPos(), b = scene.ball;
+    // Sky, ground and a scanner grid
+    const g = cx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#0b1a33"); g.addColorStop(0.55, "#16406b"); g.addColorStop(0.551, "#1e5a3c"); g.addColorStop(1, "#0f2e20");
+    cx.fillStyle = g; cx.fillRect(0, 0, W, H);
+    cx.strokeStyle = "rgba(120,220,255,.08)"; cx.lineWidth = 1;
+    for (let x = (t / 40) % 40; x < W; x += 40) { cx.beginPath(); cx.moveTo(x, H * 0.55); cx.lineTo(W / 2 + (x - W / 2) * 3, H); cx.stroke(); }
+    for (let i = 0; i < 8; i++) { const y = H * 0.55 + Math.pow(i / 8, 2) * H * 0.45 + ((t / 30) % 10); cx.beginPath(); cx.moveTo(0, y); cx.lineTo(W, y); cx.stroke(); }
+    const scanY = (t / 6) % H; cx.fillStyle = "rgba(120,220,255,.06)"; cx.fillRect(0, scanY, W, 3);
+    // Shadow and Pokémon
+    cx.fillStyle = "rgba(0,0,0,.35)"; cx.beginPath(); cx.ellipse(mp.x, mp.y + mp.r * 0.95, mp.r * 0.7 * scene.mon.scale, mp.r * 0.15, 0, 0, Math.PI * 2); cx.fill();
+    if (monImg.complete && monImg.naturalWidth && scene.mon.alpha > 0) {
+      const s = mp.r * 2 * scene.mon.scale;
+      cx.save(); cx.globalAlpha = scene.mon.alpha;
+      cx.drawImage(monImg, mp.x - s / 2, mp.y - s / 2 + scene.mon.jump, s, s);
+      cx.restore();
+      if (scene.mon.flash > 0) { cx.save(); cx.globalAlpha = scene.mon.flash; cx.fillStyle = "#fff"; cx.beginPath(); cx.arc(mp.x, mp.y, mp.r * 1.1, 0, Math.PI * 2); cx.fill(); cx.restore(); }
+    }
+    // Target ring and rotating reticle
+    if (scene.state === "idle" || scene.state === "flight") {
+      const rs = ringScale(t);
+      cx.strokeStyle = ringColor(); cx.lineWidth = 4; cx.shadowColor = ringColor(); cx.shadowBlur = 12;
+      cx.beginPath(); cx.arc(mp.x, mp.y, mp.r * rs, 0, Math.PI * 2); cx.stroke();
+      cx.lineWidth = 2; cx.strokeStyle = "rgba(255,255,255,.8)"; cx.shadowBlur = 0;
+      cx.beginPath(); cx.arc(mp.x, mp.y, mp.r * 1.02, 0, Math.PI * 2); cx.stroke();
+      cx.strokeStyle = "rgba(120,220,255,.7)"; cx.lineWidth = 2;
+      for (let i = 0; i < 4; i++) { const a = t / 900 + i * Math.PI / 2; cx.beginPath(); cx.arc(mp.x, mp.y, mp.r * 1.18, a, a + 0.6); cx.stroke(); }
+    }
+    // HUD readout
+    cx.fillStyle = "rgba(120,220,255,.9)"; cx.font = "600 12px ui-monospace, Menlo, monospace"; cx.textAlign = "left";
+    cx.fillText(`SCAN #${String(wild.m.d).padStart(4, "0")}`, 14, 22);
+    cx.fillText(`TYPE ${wild.m.t.join("/").toUpperCase()}`, 14, 38);
+    cx.fillText(`LV ${wild.level}  ${wild.legendary ? "LEGENDARY" : ""}${wild.shiny ? " SHINY" : ""}`, 14, 54);
+    cx.textAlign = "center"; cx.fillStyle = "#fff"; cx.font = "800 22px system-ui, sans-serif"; cx.shadowColor = "rgba(0,0,0,.5)"; cx.shadowBlur = 6;
+    cx.fillText(`CP ${wild.cp}`, W / 2, 34); cx.font = "700 15px system-ui, sans-serif"; cx.fillText(`${wild.shiny ? "✨ " : ""}${wild.m.n}`, W / 2, 54); cx.shadowBlur = 0;
+    // Particles
+    particles.forEach(p => { cx.globalAlpha = Math.max(0, p.life / p.max); cx.fillStyle = p.c; if (p.star) drawStar(p.x, p.y, p.r * 1.6); else { cx.beginPath(); cx.arc(p.x, p.y, p.r, 0, Math.PI * 2); cx.fill(); } });
+    cx.globalAlpha = 1;
+    // Ball
+    if (scene.state !== "caught" || scene.caughtT < 2200) {
+      const size = 64 * b.s, img = ballImgs[ballType];
+      if (scene.state !== "fled" && img.complete) {
+        cx.save(); cx.translate(b.x, b.y); cx.rotate(b.rot);
+        if (scene.state === "caught") { cx.shadowColor = "#ffd31a"; cx.shadowBlur = 20; }
+        cx.drawImage(img, -size / 2, -size / 2, size, size); cx.restore();
+      }
+    }
+    // Popups
+    popups.forEach(p => { cx.globalAlpha = Math.min(1, p.life / 400); cx.fillStyle = p.color; cx.font = "900 28px system-ui, sans-serif"; cx.textAlign = "center";
+      cx.shadowColor = p.color; cx.shadowBlur = 14; cx.fillText(p.text, p.x, p.y); cx.shadowBlur = 0; });
+    cx.globalAlpha = 1;
+  }
+  function loop(ts) {
+    if (!loopOn) return;
+    const dt = Math.min(50, ts - (lastT || ts)); lastT = ts;
+    if (scene && wild) { step(dt); draw(); }
+    requestAnimationFrame(loop);
+  }
+  function startCatchLoop() { resizeCanvas(); if (!loopOn) { loopOn = true; lastT = 0; requestAnimationFrame(loop); } }
+  function stopCatchLoop() { loopOn = false; }
+  window.addEventListener("resize", () => { if (loopOn) { resizeCanvas(); if (scene && scene.state === "idle") scene.ball = restBall(); } });
+
+  function updateBalls() {
+    document.getElementById("ball-pick").innerHTML = Object.entries(BALLS).map(([k, b]) =>
+      `<button data-ball="${k}" class="${k === ballType ? "active" : ""}" ${balls[k] ? "" : "disabled"}>${ballSVG(k, 22)} ${b.n} ×${balls[k]}</button>`).join("");
+    updateChance();
+  }
+  function bumpStat(label) {
+    try { const s = JSON.parse(localStorage.getItem("ditto-catch-stats")) || {}; s.caught = (s.caught || 0) + 1; if (label === "Excellent!") s.excellent = (s.excellent || 0) + 1; localStorage.setItem("ditto-catch-stats", JSON.stringify(s));
+      document.getElementById("catch-stats").textContent = `Caught ${s.caught} · Excellent throws ${s.excellent || 0}`; } catch (e) {}
+  }
+
+  /* ---- Egg hatcher ---- */
+  let eggPool = null;
+  async function loadEggs() {
+    if (eggPool) return;
+    const box = document.getElementById("egg-pick");
+    try {
+      const eggs = await getJSON("eggs");
+      eggPool = {};
+      eggs.forEach(e => (eggPool[e.eggType] = eggPool[e.eggType] || []).push(e));
+    } catch (e) { eggPool = { "Random": commonPool.map(m => ({ name: m.n, rarity: 3, canBeShiny: true })) }; }
+    const kms = Object.keys(eggPool).sort((a, b) => parseFloat(a) - parseFloat(b));
+    const colors = { "1 km": "#f7a8c4", "2 km": "#8fd18f", "5 km": "#f5c26b", "7 km": "#f2e15c", "10 km": "#b48ad6", "12 km": "#e05a5a" };
+    box.innerHTML = kms.map(k => `<button data-egg="${k}"><span class="egg" style="--spot:${colors[k] || "#9bc"}"></span>${k}</button>`).join("");
+  }
+  async function hatch(km) {
+    const stage = document.getElementById("egg-stage");
+    if (stage.dataset.busy) return;
+    stage.dataset.busy = "1";
+    const list = eggPool[km];
+    // Pick by rarity: the game's 1-5 rarity tiers, where higher numbers hatch more often
+    const weights = list.map(e => Math.max(1, e.rarity || 3)), sum = weights.reduce((a, b) => a + b, 0);
+    let r = Math.random() * sum, got = list[0];
+    for (let i = 0; i < list.length; i++) { r -= weights[i]; if (r <= 0) { got = list[i]; break; } }
+    const mon = matchMon(got.name) || matchMon(got.name.replace(/\s*\(.*\)|\s+wearing.*/i, ""));
+    const shiny = got.canBeShiny && Math.random() < 1 / 15;
+    const iv = randomIVs(10), cp = mon ? cpOf(mon, 20, ...iv) : (got.combatPower && got.combatPower.max) || 100;
+    stage.innerHTML = `<div class="egg big wobble" style="--spot:${getComputedStyle(document.querySelector(`[data-egg="${km}"] .egg`)).getPropertyValue("--spot")}"></div><p>Oh? The egg is hatching!</p>`;
+    await new Promise(r => setTimeout(r, 2600));
+    stage.innerHTML = `<div class="hatched ${shiny ? "shiny" : ""}"><img src="${mon ? monArt(mon, shiny) : got.image}" alt="" ${shinyFallback}></div>
+      <h3>${shiny ? "✨ " : ""}${got.name} hatched!</h3><p class="note">CP ${cp} · ${iv.join(" / ")} IVs (${Math.round((iv[0] + iv[1] + iv[2]) / 45 * 100)}%) · from a ${km} egg</p>`;
+    addToCol({ n: got.name, d: mon ? mon.d : 0, img: mon ? "" : got.image, cp, iv, shiny, from: "egg" });
+    delete stage.dataset.busy;
+  }
+
+  /* ---- Mini games: shared scanner look, particles and popups ---- */
+  function scannerBG(c, W, H, t, horizon = 0.55) {
+    const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#0b1a33"); g.addColorStop(horizon, "#16406b"); g.addColorStop(horizon + 0.001, "#1e5a3c"); g.addColorStop(1, "#0f2e20");
+    c.fillStyle = g; c.fillRect(0, 0, W, H);
+    c.strokeStyle = "rgba(120,220,255,.08)"; c.lineWidth = 1;
+    for (let x = (t / 40) % 40; x < W; x += 40) { c.beginPath(); c.moveTo(x, H * horizon); c.lineTo(W / 2 + (x - W / 2) * 3, H); c.stroke(); }
+    for (let i = 0; i < 8; i++) { const y = H * horizon + Math.pow(i / 8, 2) * H * (1 - horizon) + ((t / 30) % 10); c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke(); }
+    c.fillStyle = "rgba(120,220,255,.06)"; c.fillRect(0, (t / 6) % H, W, 3);
+  }
+  function starShape(c, x, y, r) {
+    c.beginPath();
+    for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5 - Math.PI / 2, rr = i % 2 ? r * 0.45 : r; c.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+    c.closePath(); c.fill();
+  }
+  function heartShape(c, x, y, r) {
+    c.beginPath(); c.moveTo(x, y + r * 0.9);
+    c.bezierCurveTo(x - r * 1.6, y - r * 0.2, x - r * 0.6, y - r * 1.4, x, y - r * 0.4);
+    c.bezierCurveTo(x + r * 0.6, y - r * 1.4, x + r * 1.6, y - r * 0.2, x, y + r * 0.9); c.fill();
+  }
+  // A little engine: canvas sizing, a frame loop, particles and floating text
+  function makeMini(canvasId, game) {
+    const cvs = document.getElementById(canvasId), c = cvs.getContext("2d");
+    const G = { c, W: 0, H: 0, parts: [], pops: [], on: false, last: 0, t0: performance.now() };
+    G.resize = () => { const d = window.devicePixelRatio || 1, r = cvs.getBoundingClientRect(); G.W = r.width; G.H = r.height; cvs.width = G.W * d; cvs.height = G.H * d; c.setTransform(d, 0, 0, d, 0, 0); };
+    G.burst = (x, y, n, colors, speed = 4, life = 900, shape = "dot") => { for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, v = speed * (0.4 + Math.random()); G.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1, life, max: life, col: pick(colors), r: 2 + Math.random() * 3, shape: shape === "mix" ? pick(["dot", "star"]) : shape }); } };
+    G.pop = (text, color, x, y, size = 28) => G.pops.push({ text, color, x: x == null ? G.W / 2 : x, y: y == null ? G.H * 0.5 : y, life: 1200, max: 1200, size });
+    G.drawFx = () => {
+      G.parts.forEach(p => { c.globalAlpha = Math.max(0, p.life / p.max); c.fillStyle = p.col; if (p.shape === "star") starShape(c, p.x, p.y, p.r * 1.6); else if (p.shape === "heart") heartShape(c, p.x, p.y, p.r * 1.8); else { c.beginPath(); c.arc(p.x, p.y, p.r, 0, Math.PI * 2); c.fill(); } });
+      c.globalAlpha = 1; c.textAlign = "center";
+      G.pops.forEach(p => { c.globalAlpha = Math.min(1, p.life / 400); c.fillStyle = p.color; c.font = `900 ${p.size}px system-ui, sans-serif`; c.shadowColor = p.color; c.shadowBlur = 14; c.fillText(p.text, p.x, p.y); c.shadowBlur = 0; });
+      c.globalAlpha = 1;
+    };
+    const frame = (ts) => {
+      if (!G.on) return;
+      const dt = Math.min(50, ts - (G.last || ts)); G.last = ts;
+      G.parts.forEach(p => { p.x += p.vx * dt / 16; p.y += p.vy * dt / 16; p.vy += 0.05 * dt / 16; p.life -= dt; }); G.parts = G.parts.filter(p => p.life > 0);
+      G.pops.forEach(p => { p.y -= dt * 0.04; p.life -= dt; }); G.pops = G.pops.filter(p => p.life > 0);
+      game.step(G, dt, ts - G.t0); game.draw(G, ts - G.t0); G.drawFx();
+      requestAnimationFrame(frame);
+    };
+    G.start = () => { G.resize(); if (!G.on) { G.on = true; G.last = 0; requestAnimationFrame(frame); } };
+    G.stop = () => { G.on = false; };
+    window.addEventListener("resize", () => { if (G.on) G.resize(); });
+    return G;
+  }
+  const loadImg = (src) => { const i = new Image(); i.src = src; return i; };
+  const drawMon = (c, img, x, y, size, alpha = 1) => { if (img && img.complete && img.naturalWidth) { c.save(); c.globalAlpha = alpha; c.drawImage(img, x - size / 2, y - size / 2, size, size); c.restore(); } };
+  function hudText(c, lines, x = 14, y = 22) { c.fillStyle = "rgba(120,220,255,.9)"; c.font = "600 12px ui-monospace, Menlo, monospace"; c.textAlign = "left"; lines.forEach((l, i) => c.fillText(l, x, y + i * 16)); }
+  function bar(c, x, y, w, h, frac, color, back = "rgba(255,255,255,.15)") { c.fillStyle = back; c.fillRect(x, y, w, h); c.fillStyle = color; c.fillRect(x, y, w * Math.max(0, Math.min(1, frac)), h); }
+
+  /* ---- Raid Battle: tap Attack to beat a real raid boss before time runs out, Dodge its big attacks ---- */
+  const RAID_TIME = 60000, RAID_HP = 25000;
+  let raid = null, raidBosses = null;
+  const raidGame = makeMini("raid-canvas", {
+    step(G, dt, t) {
+      if (!raid || raid.state !== "fight") return;
+      raid.time -= dt; raid.shake = Math.max(0, raid.shake - dt);
+      raid.nextAtk -= dt;
+      if (raid.warn > 0) {
+        raid.warn -= dt;
+        if (raid.warn <= 0) { // the attack lands unless you dodged
+          if (raid.dodged) { G.pop("Dodged!", "#7fe3ff", G.W * 0.3, G.H * 0.7); SFX.bonus(); }
+          else { raid.myHp -= 0.3; raid.hurt = 400; G.pop("Ouch!", "#ff6b6b", G.W * 0.3, G.H * 0.7); beep(120, 0.3, "sawtooth", 0.12, -60); }
+          raid.dodged = false; raid.nextAtk = 2500 + Math.random() * 2500;
+          document.getElementById("raid-dodge").classList.remove("alert");
+        }
+      } else if (raid.nextAtk <= 0) {
+        raid.warn = 1100; document.getElementById("raid-dodge").classList.add("alert"); beep(880, 0.12, "square", 0.08); beep(660, 0.12, "square", 0.08);
+      }
+      raid.hurt = Math.max(0, (raid.hurt || 0) - dt);
+      if (raid.hp <= 0) raidEnd(true);
+      else if (raid.myHp <= 0.001 || raid.time <= 0) raidEnd(false);
+    },
+    draw(G, t) {
+      const { c, W, H } = G;
+      scannerBG(c, W, H, t, 0.62);
+      if (!raid) return;
+      const bx = W / 2 + (raid.shake ? (Math.random() - .5) * 14 : 0), by = H * 0.36, size = Math.min(W, H) * 0.5;
+      c.fillStyle = "rgba(0,0,0,.35)"; c.beginPath(); c.ellipse(W / 2, by + size * 0.45, size * 0.38, size * 0.07, 0, 0, Math.PI * 2); c.fill();
+      // Boss aura
+      const pulse = 0.5 + 0.5 * Math.sin(t / 250);
+      c.save(); c.globalAlpha = raid.warn > 0 ? 0.6 + 0.4 * pulse : 0.25; c.fillStyle = raid.warn > 0 ? "#ff3b3b" : "#7a4fa3";
+      c.beginPath(); c.arc(bx, by, size * 0.55, 0, Math.PI * 2); c.fill(); c.restore();
+      drawMon(c, raid.bossImg, bx, by + Math.sin(t / 400) * 4, size, raid.state === "won" ? Math.max(0, 1 - raid.endT / 800) : 1);
+      // Your attacker, bottom left
+      drawMon(c, raid.meImg, W * 0.18, H * 0.82, Math.min(W, H) * 0.24, raid.hurt ? 0.5 : 1);
+      // Bars
+      c.textAlign = "center"; c.fillStyle = "#fff"; c.font = "800 18px system-ui, sans-serif"; c.fillText(raid.boss.n, W / 2, 26);
+      bar(c, W * 0.2, 34, W * 0.6, 10, raid.hp / RAID_HP, "#ff5a5a");
+      c.font = "700 14px system-ui, sans-serif"; c.fillStyle = raid.time < 10000 ? "#ff6b6b" : "#fff";
+      c.fillText(`⏱ ${Math.max(0, Math.ceil(raid.time / 1000))}s`, W - 40, 26);
+      c.textAlign = "left"; c.fillStyle = "#fff"; c.fillText(raid.me.n, W * 0.3, H * 0.8);
+      bar(c, W * 0.3, H * 0.8 + 6, W * 0.35, 8, raid.myHp, raid.myHp > 0.5 ? "#2ef27a" : raid.myHp > 0.2 ? "#ffd31a" : "#ff5a5a");
+      hudText(c, [`BOSS ${raid.boss.t.join("/").toUpperCase()}`, `WEAK ${TYPES.filter(x => goMult(x, raid.boss.t) > 1.5).slice(0, 4).join(" ").toUpperCase()}`], 14, 62);
+      if (raid.warn > 0) { c.textAlign = "center"; c.fillStyle = `rgba(255,80,80,${0.6 + 0.4 * pulse})`; c.font = "900 30px system-ui, sans-serif"; c.fillText("⚠ INCOMING ATTACK — DODGE!", W / 2, H * 0.68); }
+      if (raid.state === "won" || raid.state === "lost") raid.endT = (raid.endT || 0) + 16;
+    }
+  });
+  async function newRaid() {
+    if (!raidBosses) {
+      raidBosses = [];
+      try { const r = await getJSON("raids"); r.filter(x => /5-Star|Mega|Shadow/.test(x.tier)).forEach(x => { const m = matchMon(x.name); if (m) raidBosses.push(m); }); } catch (e) {}
+      if (!raidBosses.length) raidBosses = funPool.filter(isLegend);
+    }
+    const boss = pick(raidBosses);
+    const counters = raidCounters(boss, { shadow: false, mega: false, legend: true, elite: false }).slice(0, 6);
+    raid = { boss, counters, pick: 0, state: "ready", hp: RAID_HP, myHp: 1, time: RAID_TIME, nextAtk: 3000, warn: 0, shake: 0, bossImg: loadImg(monArt(boss)) };
+    setRaidAttacker(0);
+    document.getElementById("raid-msg").textContent = `${boss.n} is a raid boss right now! Your best counter is ready. Tap Start.`;
+    document.getElementById("raid-start").textContent = "Start raid!";
+  }
+  function setRaidAttacker(i) {
+    const r = raid.counters[i] || raid.counters[0];
+    raid.pick = i; raid.me = r.m; raid.meImg = loadImg(monArt(r.m));
+    raid.tapDmg = Math.max(30, Math.round(r.dps * 5)); // stronger counters hit harder per tap
+    document.getElementById("raid-who").textContent = `Attacker: ${r.m.n} (${r.note.replace(/<[^>]+>/g, "")})`;
+  }
+  function raidAttack() {
+    if (!raid || raid.state !== "fight") return;
+    const crit = Math.random() < 0.1, dmg = raid.tapDmg * (crit ? 2 : 1);
+    raid.hp = Math.max(0, raid.hp - dmg); raid.shake = 120;
+    raidGame.burst(raidGame.W / 2 + (Math.random() - .5) * 80, raidGame.H * 0.36 + (Math.random() - .5) * 80, crit ? 16 : 6, crit ? ["#ffd31a", "#fff"] : ["#ffffff", "#ffb3b3"], crit ? 6 : 3, 500, "mix");
+    raidGame.pop(crit ? `CRIT ${dmg}` : `${dmg}`, crit ? "#ffd31a" : "#ffffff", raidGame.W / 2 + (Math.random() - .5) * 120, raidGame.H * 0.3, crit ? 26 : 18);
+    beep(crit ? 700 : 400 + Math.random() * 100, 0.06, "square", 0.06);
+  }
+  function raidEnd(won) {
+    raid.state = won ? "won" : "lost"; raid.endT = 0;
+    document.getElementById("raid-dodge").classList.remove("alert");
+    if (won) {
+      SFX.caught(); raidGame.burst(raidGame.W / 2, raidGame.H * 0.36, 60, ["#ffd31a", "#fff", "#7fe3ff"], 7, 1500, "mix");
+      // Mega and Shadow raids reward the regular form, like in the game
+      const prize = isMega(raid.boss) || isShadow(raid.boss) ? (GO.mons.find(x => x.d === raid.boss.d && !isMega(x) && !isShadow(x)) || raid.boss) : raid.boss;
+      const iv = randomIVs(10), shiny = Math.random() < 1 / 20, cp = cpOf(prize, 20, ...iv);
+      addToCol({ n: prize.n, d: prize.d, cp, iv, shiny, from: "catch" });
+      raidGame.pop("RAID CLEARED!", "#ffd31a", null, raidGame.H * 0.25, 34);
+      document.getElementById("raid-msg").textContent = `You beat ${raid.boss.n} with ${Math.ceil(raid.time / 1000)}s left and caught ${prize.n}${shiny ? " — it's SHINY ✨" : ""}! (CP ${cp})`;
+      try { localStorage.setItem("ditto-raids-won", String((+localStorage.getItem("ditto-raids-won") || 0) + 1)); } catch (e) {}
+    } else {
+      SFX.flee(); raidGame.pop(raid.time <= 0 ? "TIME UP" : "FAINTED", "#ff6b6b", null, raidGame.H * 0.25, 34);
+      document.getElementById("raid-msg").textContent = raid.time <= 0 ? "Out of time! Tap faster, or switch to a stronger counter." : "Your Pokémon fainted! Remember to Dodge the big attacks.";
+    }
+    document.getElementById("raid-start").textContent = "New raid";
+    raidStats();
+  }
+  function raidStats() { let w = 0; try { w = +localStorage.getItem("ditto-raids-won") || 0; } catch (e) {} document.getElementById("raid-stats").textContent = `Raids won: ${w}`; }
+
+  /* ---- PokéStop Spin: stop the needle in the gold zone for extra balls, which go to the Catch Game ---- */
+  let stop = { angle: 0, speed: 0.004, spinning: 0, cool: 0, zone: Math.random() * Math.PI * 2, streak: 0 };
+  const stopGame = makeMini("stop-canvas", {
+    step(G, dt) {
+      stop.angle = (stop.angle + stop.speed * dt) % (Math.PI * 2);
+      if (stop.spinning > 0) stop.spinning -= dt;
+      if (stop.cool > 0) { stop.cool -= dt; if (stop.cool <= 0) { document.getElementById("stop-msg").textContent = "The PokéStop is ready! Tap Spin when the needle is in the gold zone."; stop.zone = Math.random() * Math.PI * 2; } }
+    },
+    draw(G, t) {
+      const { c, W, H } = G;
+      scannerBG(c, W, H, t, 0.7);
+      const x = W / 2, y = H * 0.45, R = Math.min(W, H) * 0.28, cooling = stop.cool > 0;
+      // Pole and disc
+      c.fillStyle = "#24476e"; c.fillRect(x - 6, y, 12, H * 0.45);
+      const spinA = stop.spinning > 0 ? (1 - stop.spinning / 1200) * Math.PI * 8 : 0;
+      c.save(); c.translate(x, y); c.rotate(spinA);
+      const grad = c.createRadialGradient(0, 0, R * 0.2, 0, 0, R);
+      grad.addColorStop(0, cooling ? "#c8a6ff" : "#7ff0ff"); grad.addColorStop(1, cooling ? "#7a4fa3" : "#1a8fd8");
+      c.fillStyle = grad; c.shadowColor = cooling ? "#b48ad6" : "#7fe3ff"; c.shadowBlur = 24;
+      c.beginPath(); c.arc(0, 0, R, 0, Math.PI * 2); c.fill(); c.shadowBlur = 0;
+      c.fillStyle = "rgba(255,255,255,.85)"; c.beginPath(); c.arc(0, 0, R * 0.32, 0, Math.PI * 2); c.fill();
+      c.fillStyle = cooling ? "#7a4fa3" : "#1a8fd8"; c.font = `${R * 0.35}px system-ui`; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("📍", 0, 2); c.textBaseline = "alphabetic";
+      c.restore();
+      // Timing dial with a gold zone and the moving needle
+      const dial = R * 1.25;
+      c.lineWidth = 10; c.strokeStyle = "rgba(255,255,255,.15)"; c.beginPath(); c.arc(x, y, dial, 0, Math.PI * 2); c.stroke();
+      if (!cooling) {
+        c.strokeStyle = "#ffd31a"; c.shadowColor = "#ffd31a"; c.shadowBlur = 12; c.beginPath(); c.arc(x, y, dial, stop.zone - 0.3, stop.zone + 0.3); c.stroke(); c.shadowBlur = 0;
+        c.strokeStyle = "#ffffff"; c.lineWidth = 4; c.beginPath(); c.moveTo(x + Math.cos(stop.angle) * (dial - 16), y + Math.sin(stop.angle) * (dial - 16)); c.lineTo(x + Math.cos(stop.angle) * (dial + 16), y + Math.sin(stop.angle) * (dial + 16)); c.stroke();
+      } else { c.fillStyle = "#c8a6ff"; c.font = "700 14px system-ui"; c.textAlign = "center"; c.fillText(`Cooling down… ${Math.ceil(stop.cool / 1000)}s`, x, y + dial + 26); }
+      hudText(c, [`STOP ONLINE`, `STREAK ${stop.streak}`, `BAG ${balls.poke}/${balls.great}/${balls.ultra}/${balls.master}`]);
+    }
+  });
+  function spinStop() {
+    if (stop.cool > 0 || stop.spinning > 0) return;
+    let d = Math.abs(stop.angle - stop.zone); d = Math.min(d, Math.PI * 2 - d);
+    const perfect = d < 0.3;
+    stop.streak = perfect ? stop.streak + 1 : 0;
+    const n = (perfect ? 6 : 3) + rnd(3) + (stop.streak >= 5 ? 4 : 0);
+    const got = { poke: 0, great: 0, ultra: 0 };
+    for (let i = 0; i < n; i++) { const r = Math.random(); got[r < 0.6 ? "poke" : r < 0.88 ? "great" : "ultra"]++; }
+    Object.keys(got).forEach(k => balls[k] += got[k]);
+    if (perfect) { balls.master++; saveMaster(); }
+    updateBalls();
+    stop.spinning = 1200; stop.cool = 4000; stop.speed = 0.003 + Math.random() * 0.004;
+    const { W, H } = stopGame;
+    stopGame.burst(W / 2, H * 0.45, perfect ? 50 : 24, ["#7fe3ff", "#ffffff", "#e3350d", "#3b6fd8", "#f6c915"], perfect ? 7 : 5, 1100, "mix");
+    stopGame.pop(perfect ? (stop.streak >= 5 ? `PERFECT ×${stop.streak}!` : "PERFECT SPIN!") : "Spin!", perfect ? "#ffd31a" : "#7fe3ff", null, H * 0.15, perfect ? 32 : 24);
+    if (perfect) setTimeout(() => stopGame.pop("+1 MASTER BALL", "#c77dff", null, stopGame.H * 0.28, 22), 350);
+    [600, 800, 1000, 1300].forEach((f, i) => setTimeout(() => beep(f, 0.1, "triangle", 0.08), i * 60));
+    document.getElementById("stop-msg").textContent = `You got ${got.poke} Poké Ball${got.poke === 1 ? "" : "s"}, ${got.great} Great and ${got.ultra} Ultra Ball${got.ultra === 1 ? "" : "s"}! ${perfect ? "Perfect spin bonus: a MASTER BALL! 🟣 " : ""}They're in your Catch Game bag.${stop.streak >= 5 ? " Streak bonus!" : ""}`;
+    try { localStorage.setItem("ditto-spins", String((+localStorage.getItem("ditto-spins") || 0) + 1)); } catch (e) {}
+    let s = 0; try { s = +localStorage.getItem("ditto-spins") || 0; } catch (e) {}
+    document.getElementById("stop-stats").textContent = `PokéStops spun: ${s}`;
+  }
+
+  /* ---- Berry Toss: toss Razz Berries to your buddy as it zooms around ---- */
+  const BERRY_TIME = 30000;
+  let berry = null;
+  const berryGame = makeMini("berry-canvas", {
+    step(G, dt, t) {
+      if (!berry) return;
+      const b = berry.buddy;
+      if (berry.state === "play") {
+        berry.time -= dt;
+        b.x += b.vx * dt; if (b.x < 60 || b.x > G.W - 60) { b.vx *= -1; b.x = Math.max(60, Math.min(G.W - 60, b.x)); }
+        if (Math.random() < 0.004 * dt / 16 * (1 + berry.score / 10)) b.vx = (Math.random() < .5 ? -1 : 1) * (0.15 + Math.random() * 0.25 + berry.score * 0.01);
+        if (berry.time <= 0) berryEnd();
+      }
+      berry.flying.forEach(f => { f.t += dt / 350; f.x = f.x0; f.y = f.y0 + (G.H * 0.38 - f.y0) * f.t; });
+      berry.flying.filter(f => f.t >= 1 && !f.done).forEach(f => {
+        f.done = true;
+        if (Math.abs(f.x - b.x) < 70) {
+          berry.combo++; const pts = 1 + Math.floor(berry.combo / 3); berry.score += pts; b.happy = 500;
+          G.burst(b.x, G.H * 0.38, 14, ["#ff6b9d", "#ff9ff3", "#ffffff"], 4, 900, "heart");
+          G.pop(berry.combo >= 3 ? `+${pts} Combo ×${berry.combo}` : `+${pts}`, "#ff9ff3", b.x, G.H * 0.3, 22);
+          beep(880 + berry.combo * 40, 0.1, "triangle", 0.09);
+        } else { berry.combo = 0; G.pop("Miss", "#ffffff", f.x, G.H * 0.36, 18); beep(220, 0.12, "sine", 0.06); }
+      });
+      berry.flying = berry.flying.filter(f => !f.done);
+      b.happy = Math.max(0, (b.happy || 0) - dt);
+    },
+    draw(G, t) {
+      const { c, W, H } = G;
+      scannerBG(c, W, H, t, 0.6);
+      if (!berry) return;
+      const b = berry.buddy, size = Math.min(W, H) * 0.26;
+      c.fillStyle = "rgba(0,0,0,.35)"; c.beginPath(); c.ellipse(b.x, H * 0.38 + size * 0.45, size * 0.35, size * 0.07, 0, 0, Math.PI * 2); c.fill();
+      drawMon(c, berry.img, b.x, H * 0.38 - (b.happy ? Math.sin(b.happy / 40) * 10 : 0), size);
+      berry.flying.forEach(f => { c.save(); c.translate(f.x, f.y); c.rotate(f.t * 10); c.font = `${30 - f.t * 10}px system-ui`; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("🍓", 0, 0); c.restore(); });
+      c.font = "34px system-ui"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("🍓", W / 2, H - 50); c.textBaseline = "alphabetic";
+      c.fillStyle = "#fff"; c.font = "800 20px system-ui, sans-serif"; c.fillText(`Score ${berry.score}`, W / 2, 28);
+      c.font = "700 14px system-ui"; c.fillStyle = berry.time < 8000 ? "#ff6b6b" : "#fff"; c.fillText(`⏱ ${Math.max(0, Math.ceil(berry.time / 1000))}s`, W - 40, 28);
+      hudText(c, [`BUDDY ${berry.name.toUpperCase()}`, `COMBO ${berry.combo}`, `BEST ${berryBest()}`], 14, 22);
+    }
+  });
+  const berryBest = () => { try { return +localStorage.getItem("ditto-berry-best") || 0; } catch (e) { return 0; } };
+  function newBerry() {
+    const col = loadCol().filter(x => x.d), last = col[col.length - 1];
+    const m = last ? (GO.mons.find(x => x.d === last.d) || monById.pikachu) : monById.pikachu;
+    berry = { state: "ready", score: 0, combo: 0, time: BERRY_TIME, flying: [], name: last ? last.n : "Pikachu", img: loadImg(monArt(m)),
+              buddy: { x: (berryGame.W || 600) / 2, vx: 0.2 } };
+    document.getElementById("berry-msg").textContent = `Your buddy ${berry.name} is hungry! Tap Toss when it's right above the berry. 30 seconds!`;
+    document.getElementById("berry-start").textContent = "Start!";
+  }
+  function tossBerry() {
+    if (!berry || berry.state !== "play") return;
+    if (berry.flying.length >= 2) return;
+    berry.flying.push({ x0: berryGame.W / 2, y0: berryGame.H - 50, t: 0 });
+    beep(500, 0.08, "triangle", 0.06, 300);
+  }
+  function berryEnd() {
+    berry.state = "done";
+    const best = berryBest(), record = berry.score > best;
+    if (record) try { localStorage.setItem("ditto-berry-best", String(berry.score)); } catch (e) {}
+    berryGame.pop(record ? "NEW RECORD!" : "TIME UP", record ? "#ffd31a" : "#ffffff", null, berryGame.H * 0.6, 34);
+    if (record) { SFX.caught(); berryGame.burst(berryGame.W / 2, berryGame.H * 0.5, 50, ["#ffd31a", "#ff9ff3", "#fff"], 7, 1400, "mix"); }
+    document.getElementById("berry-msg").textContent = `You scored ${berry.score} point${berry.score === 1 ? "" : "s"} feeding ${berry.name}!${record ? " That's a new high score!" : ` Your best is ${best}.`}`;
+    document.getElementById("berry-start").textContent = "Play again";
+  }
+
+  if (GO) {
+    document.getElementById("fun-tabs").addEventListener("click", e => { const t = e.target.dataset.fun; if (t) setFun(t); });
+    document.getElementById("ball-pick").addEventListener("click", e => { const b = e.target.closest("[data-ball]"); if (b) { ballType = b.dataset.ball; updateBalls(); } });
+    document.getElementById("throw-btn").onclick = throwBall;
+    document.getElementById("sound-btn").onclick = (e) => { soundOn = !soundOn; e.target.textContent = soundOn ? "🔊 Sound on" : "🔇 Sound off"; };
+    document.getElementById("restock-btn").onclick = () => { balls = { poke: 30, great: 15, ultra: 10, master: balls.master }; updateBalls(); };
+    document.getElementById("run-btn").onclick = () => { if (scene && scene.state === "idle") spawnWild(); };
+    document.getElementById("egg-pick").addEventListener("click", e => { const b = e.target.closest("[data-egg]"); if (b) hatch(b.dataset.egg); });
+    document.getElementById("raid-start").onclick = async () => {
+      if (!raid || raid.state === "won" || raid.state === "lost") await newRaid();
+      if (raid.state !== "ready") return;
+      raid.state = "fight";
+      document.getElementById("raid-start").textContent = "Raid in progress…";
+      document.getElementById("raid-msg").textContent = "Tap Attack as fast as you can! Hit Dodge when the warning flashes.";
+    };
+    document.getElementById("raid-attack").onclick = raidAttack;
+    document.getElementById("raid-canvas").addEventListener("click", raidAttack);
+    document.getElementById("raid-dodge").onclick = () => { if (raid && raid.warn > 0) raid.dodged = true; };
+    document.getElementById("raid-switch").onclick = () => { if (raid && raid.state === "ready") setRaidAttacker((raid.pick + 1) % raid.counters.length); };
+    document.getElementById("stop-spin").onclick = spinStop;
+    document.getElementById("stop-canvas").addEventListener("click", spinStop);
+    document.getElementById("berry-start").onclick = () => { if (!berry || berry.state === "done") newBerry(); berry.state = "play"; document.getElementById("berry-start").textContent = "Playing…"; };
+    document.getElementById("berry-toss").onclick = tossBerry;
+    document.getElementById("berry-canvas").addEventListener("click", tossBerry);
+    document.addEventListener("keydown", (e) => { // space bar plays whichever game is open
+      if (e.code !== "Space" || !document.getElementById("fun").classList.contains("show") || /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+      const open = document.querySelector("#fun-tabs .active"); if (!open) return;
+      const act = { catch: throwBall, raid: raidAttack, stop: spinStop, berry: tossBerry }[open.dataset.fun];
+      if (act) { e.preventDefault(); act(); }
+    });
+    document.getElementById("col-filter").addEventListener("change", renderCollection);
+    document.getElementById("col-select").onclick = () => { colSelecting = !colSelecting; colSelected.clear(); renderCollection(); };
+    document.getElementById("col-transfer-sel").onclick = () => transfer([...colSelected]);
+    document.getElementById("col-dupes").onclick = () => { // keep the best of each species (and every shiny or hundo), select the rest
+      const c = loadCol(), keep = {};
+      c.forEach((x, i) => { if (isSpecial(x)) return; if (keep[x.n] === undefined || x.cp > c[keep[x.n]].cp) keep[x.n] = i; });
+      colSelecting = true; colSelected = new Set(c.map((x, i) => i).filter(i => !isSpecial(c[i]) && keep[c[i].n] !== i));
+      document.getElementById("col-msg").textContent = colSelected.size ? `Selected ${colSelected.size} duplicates. Your best one of each, plus every shiny and hundo, is kept.` : "No duplicates to transfer!";
+      renderCollection();
+    };
+    document.getElementById("col-grid").addEventListener("click", (e) => {
+      const t = e.target.closest("[data-transfer]"); if (t) return transfer([+t.dataset.transfer]);
+      const ev = e.target.closest("[data-evolve]"); if (ev) return evolve(+ev.dataset.evolve, ev.dataset.to);
+      const p = e.target.closest("[data-pick]"); if (p) { const i = +p.dataset.pick; colSelected.has(i) ? colSelected.delete(i) : colSelected.add(i); renderCollection(); }
+    });
+    document.getElementById("col-clear").onclick = () => { if (confirm("Release every Pokémon in your collection? This can't be undone.")) { saveCol([]); renderCollection(); } };
+    updateBalls(); bumpStatShow();
+  }
+  function bumpStatShow() { try { const s = JSON.parse(localStorage.getItem("ditto-catch-stats")) || {}; document.getElementById("catch-stats").textContent = `Caught ${s.caught || 0} · Excellent throws ${s.excellent || 0}`; } catch (e) {} }
+
+  /* ================= Platinum Medal Tracker ================= */
+  // Medal targets (bronze, silver, gold, platinum) come from the Pokémon GO game data
+  const MEDALS = [{"id":"TRAVEL_KM","n":"Jogger","d":"Kilometers walked","c":"Exploring","t":[10,100,1000,10000]},{"id":"POKESTOPS_VISITED","n":"Backpacker","d":"PokéStops spun","c":"Exploring","t":[100,1000,2000,50000]},{"id":"UNIQUE_POKESTOPS","n":"Sightseer","d":"Different PokéStops visited","c":"Exploring","t":[10,100,1000,2000]},{"id":"7_DAY_STREAKS","n":"Triathlete","d":"7-day streaks","c":"Exploring","t":[1,10,50,100]},{"id":"CHALLENGE_QUESTS","n":"Pokémon Ranger","d":"Field Research tasks completed","c":"Exploring","t":[10,100,1000,2500]},{"id":"TOTAL_ROUTE_PLAY","n":"Route Walker","d":"Routes completed","c":"Exploring","t":[10,50,200,600]},{"id":"PHOTOBOMB","n":"Cameraman","d":"Surprise encounters in GO Snapshot","c":"Exploring","t":[10,50,200,400]},{"id":"WAYFARER","n":"Wayfarer","d":"Wayfarer agreements","c":"Exploring","t":[50,500,1000,1500]},{"id":"CAPTURE_TOTAL","n":"Collector","d":"Pokémon caught","c":"Catching","t":[30,500,2000,50000]},{"id":"HATCHED_TOTAL","n":"Breeder","d":"Eggs hatched","c":"Catching","t":[10,100,500,2500]},{"id":"EVOLVED_TOTAL","n":"Scientist","d":"Pokémon evolved","c":"Catching","t":[3,20,200,2000]},{"id":"BIG_MAGIKARP","n":"Fisher","d":"XL Magikarp caught","c":"Catching","t":[3,50,300,1000]},{"id":"SMALL_RATTATA","n":"Youngster","d":"XS Rattata caught","c":"Catching","t":[3,50,300,1000]},{"id":"PIKACHU","n":"Pikachu Fan","d":"Pikachu caught","c":"Catching","t":[3,50,300,1000]},{"id":"CAPTURE_LARGE_POKEMON","n":"Jumbo Pokémon","d":"XXL Pokémon caught","c":"Catching","t":[5,25,100,500]},{"id":"CAPTURE_SMALL_POKEMON","n":"Tiny Pokémon","d":"XXS Pokémon caught","c":"Catching","t":[5,25,100,500]},{"id":"POKEMON_CAUGHT_AT_YOUR_LURES","n":"Picnicker","d":"Pokémon caught at your Lures","c":"Catching","t":[5,25,500,2500]},{"id":"UNOWN","n":"Unown","d":"Different Unown caught","c":"Catching","t":[3,10,26,28]},{"id":"BUTTERFLY_COLLECTOR","n":"Butterfly Collector","d":"Vivillon patterns collected","c":"Catching","t":[1,5,10,18]},{"id":"POKEMON_PURIFIED","n":"Purifier","d":"Shadow Pokémon purified","c":"Catching","t":[5,50,500,1000]},{"id":"TOTAL_MEGA_EVOS","n":"Successor","d":"Mega Evolutions","c":"Catching","t":[1,50,500,1000]},{"id":"UNIQUE_MEGA_EVOS","n":"Mega Evolution Guru","d":"Different Pokémon Mega Evolved","c":"Catching","t":[1,24,36,46]},{"id":"RAID_BATTLE_WON","n":"Champion","d":"Raids won","c":"Battling","t":[10,100,1000,2000]},{"id":"LEGENDARY_BATTLE_WON","n":"Battle Legend","d":"Legendary raids won","c":"Battling","t":[10,100,1000,2000]},{"id":"RAIDS_WITH_FRIENDS","n":"Raid Expert","d":"Raids won with friends","c":"Battling","t":[10,100,1000,2000]},{"id":"UNIQUE_RAID_BOSSES_DEFEATED","n":"Raid Boss Collector","d":"Different raid bosses defeated","c":"Battling","t":[2,10,50,150]},{"id":"BATTLE_ATTACK_WON","n":"Battle Girl","d":"Gym battles won","c":"Battling","t":[10,100,1000,4000]},{"id":"BATTLE_TRAINING_WON","n":"Ace Trainer","d":"Trainer battles won","c":"Battling","t":[10,100,1000,2000]},{"id":"HOURS_DEFENDED","n":"Gym Leader","d":"Hours defending Gyms","c":"Battling","t":[10,100,1000,15000]},{"id":"BERRIES_FED","n":"Berry Master","d":"Berries fed at Gyms","c":"Battling","t":[10,100,1000,15000]},{"id":"GREAT_LEAGUE","n":"Great League Veteran","d":"Great League battles won","c":"Battling","t":[5,50,200,1000]},{"id":"ULTRA_LEAGUE","n":"Ultra League Veteran","d":"Ultra League battles won","c":"Battling","t":[5,50,200,1000]},{"id":"MASTER_LEAGUE","n":"Master League Veteran","d":"Master League battles won","c":"Battling","t":[5,50,200,1000]},{"id":"ROCKET_GRUNTS_DEFEATED","n":"Hero","d":"Team GO Rocket Grunts defeated","c":"Battling","t":[10,100,1000,2000]},{"id":"ROCKET_GIOVANNI_DEFEATED","n":"Ultra Hero","d":"Giovanni defeated","c":"Battling","t":[1,5,20,50]},{"id":"PARTY_CHALLENGES_COMPLETED","n":"Party Leader","d":"Party Challenges completed","c":"Battling","t":[10,50,100,200]},{"id":"MAX_SIZE_FIRST_PLACE_WIN","n":"Showcase Star","d":"PokéStop Showcases won","c":"Battling","t":[1,10,50,100]},{"id":"TRADING","n":"Gentleman","d":"Trades","c":"Social","t":[10,100,1000,2500]},{"id":"TRADING_DISTANCE","n":"Pilot","d":"Total trade distance (km)","c":"Social","t":[1000,100000,1000000,10000000]},{"id":"MAX_LEVEL_FRIENDS","n":"Idol","d":"Best Friends","c":"Social","t":[1,2,3,20]},{"id":"BUDDY_BEST","n":"Best Buddy","d":"Best Buddy Pokémon","c":"Social","t":[1,10,100,200]},{"id":"TRAINERS_REFERRED","n":"Friend Finder","d":"Friends referred","c":"Social","t":[1,10,20,50]},{"id":"POKEDEX_ENTRIES","n":"Kanto","d":"Kanto Pokédex entries registered","c":"Pokédex","t":[5,50,100,151]},{"id":"POKEDEX_ENTRIES_GEN2","n":"Johto","d":"Johto Pokédex entries registered","c":"Pokédex","t":[5,30,70,100]},{"id":"POKEDEX_ENTRIES_GEN3","n":"Hoenn","d":"Hoenn Pokédex entries registered","c":"Pokédex","t":[5,40,90,135]},{"id":"POKEDEX_ENTRIES_GEN4","n":"Sinnoh","d":"Sinnoh Pokédex entries registered","c":"Pokédex","t":[5,30,80,107]},{"id":"POKEDEX_ENTRIES_GEN5","n":"Unova","d":"Unova Pokédex entries registered","c":"Pokédex","t":[5,50,100,156]},{"id":"POKEDEX_ENTRIES_GEN6","n":"Kalos","d":"Kalos Pokédex entries registered","c":"Pokédex","t":[5,25,50,72]},{"id":"POKEDEX_ENTRIES_GEN7","n":"Alola","d":"Alola Pokédex entries registered","c":"Pokédex","t":[5,25,50,86]},{"id":"POKEDEX_ENTRIES_GEN8","n":"Galar","d":"Galar Pokédex entries registered","c":"Pokédex","t":[5,25,50,89]},{"id":"POKEDEX_ENTRIES_GEN8A","n":"Hisui","d":"Hisui Pokédex entries registered","c":"Pokédex","t":[1,3,5,7]},{"id":"POKEDEX_ENTRIES_GEN9","n":"Paldea","d":"Paldea Pokédex entries registered","c":"Pokédex","t":[5,30,80,103]},{"id":"TYPE_NORMAL","n":"Schoolkid","d":"Normal-type Pokémon caught","c":"Type medals","t":[10,50,200,2500],"type":"normal"},{"id":"TYPE_FIRE","n":"Kindler","d":"Fire-type Pokémon caught","c":"Type medals","t":[10,50,200,2500],"type":"fire"},{"id":"TYPE_WATER","n":"Swimmer","d":"Water-type Pokémon caught","c":"Type medals","t":[10,50,200,2500],"type":"water"},{"id":"TYPE_GRASS","n":"Gardener","d":"Grass-type Pokémon caught","c":"Type medals","t":[10,50,200,2500],"type":"grass"},{"id":"TYPE_ELECTRIC","n":"Rocker","d":"Electric-type Pokémon caught","c":"Type medals","t":[10,50,200,2500],"type":"electric"},{"id":"TYPE_ICE","n":"Skier","d":"Ice-type Pokémon caught","c":"Type medals","t":[10,50,200,2500],"type":"ice"},{"id":"TYPE_FIGHTING","n":"Black Belt","d":"Fighting-type Pokémon caught","c":"Type medals","t":[10,50,200,2500],"type":"fighting"},{"id":"TYPE_POISON","n":"Punk Girl","d":"Poison-type Pokémon caught","c":"Type medals","t":[10,50,200,2500],"type":"poison"},{"id":"TYPE_GROUND","n":"Ruin Maniac","d":"Ground-type Pokémon caught","c":"Type medals","t":[10,50,200,2500],"type":"ground"},{"id":"TYPE_FLYING","n":"Bird Keeper","d":"Flying-type Pokémon caught","c":"Type medals","t":[10,50,200,2500],"type":"flying"},{"id":"TYPE_PSYCHIC","n":"Psychic","d":"Psychic-type Pokémon caught","c":"Type medals","t":[10,50,200,2500],"type":"psychic"},{"id":"TYPE_BUG","n":"Bug Catcher","d":"Bug-type Pokémon caught","c":"Type medals","t":[10,50,200,2500],"type":"bug"},{"id":"TYPE_ROCK","n":"Hiker","d":"Rock-type Pokémon caught","c":"Type medals","t":[10,50,200,2500],"type":"rock"},{"id":"TYPE_GHOST","n":"Hex Maniac","d":"Ghost-type Pokémon caught","c":"Type medals","t":[10,50,200,2500],"type":"ghost"},{"id":"TYPE_DRAGON","n":"Dragon Tamer","d":"Dragon-type Pokémon caught","c":"Type medals","t":[10,50,200,2500],"type":"dragon"},{"id":"TYPE_DARK","n":"Delinquent","d":"Dark-type Pokémon caught","c":"Type medals","t":[10,50,200,2500],"type":"dark"},{"id":"TYPE_STEEL","n":"Depot Agent","d":"Steel-type Pokémon caught","c":"Type medals","t":[10,50,200,2500],"type":"steel"},{"id":"TYPE_FAIRY","n":"Fairy Tale Girl","d":"Fairy-type Pokémon caught","c":"Type medals","t":[10,50,200,2500],"type":"fairy"}];
+  const TIER_NAMES = ["Not started", "Bronze", "Silver", "Gold", "Platinum"];
+  const CAT_ICONS = { "Exploring": "🧭", "Catching": "🎯", "Battling": "⚔️", "Social": "🤝", "Pokédex": "📖", "Type medals": "🏅" };
+  let medalSortClosest = false;
+  function loadMedals() { try { return JSON.parse(localStorage.getItem("ditto-medals")) || {}; } catch (e) { return {}; } }
+  function saveMedals(v) { try { localStorage.setItem("ditto-medals", JSON.stringify(v)); } catch (e) {} }
+  const tierOf = (m, v) => m.t.filter(t => v >= t).length;
+  const fmtNum = (n) => Number(n).toLocaleString();
+  function medalCard(m, v) {
+    const tier = tierOf(m, v), plat = m.t[3];
+    const pct = Math.min(100, v / plat * 100);
+    const next = tier < 4 ? m.t[tier] : null;
+    const left = tier === 4 ? "Platinum! 🎉" : `${fmtNum(plat - v)} to platinum` + (tier < 3 ? ` · next: ${TIER_NAMES[tier + 1]} at ${fmtNum(next)}` : "");
+    const icon = m.type ? `<span class="type" style="background:${TYPE_COLORS[m.type]};padding:2px 5px;font-size:.6rem;margin:0">${m.type.slice(0, 3)}</span>` : CAT_ICONS[m.c];
+    return `<div class="medal ${tier === 4 ? "plat" : ""}">
+      <div class="medal-icon tier-${tier}" title="${TIER_NAMES[tier]}">${icon}</div>
+      <div>
+        <h4>${m.n} <span class="what">· ${TIER_NAMES[tier]}</span></h4>
+        <div class="what">${m.d} · platinum at ${fmtNum(plat)}</div>
+        <div class="mbar"><div style="width:${pct}%"></div></div>
+        <div class="left">${left}</div>
+      </div>
+      <input type="number" min="0" inputmode="numeric" data-medal="${m.id}" value="${v || ""}" placeholder="0" aria-label="${m.n} progress">
+    </div>`;
+  }
+  function renderMedals() {
+    const prog = loadMedals();
+    const q = document.getElementById("medal-search").value.trim().toLowerCase();
+    const show = document.getElementById("medal-show").value;
+    const val = (m) => Number(prog[m.id] || 0);
+    // Summary
+    const tiers = MEDALS.map(m => tierOf(m, val(m)));
+    const count = (t) => tiers.filter(x => x === t).length;
+    document.getElementById("medal-summary").innerHTML = `
+      <div><b>${count(4)} / ${MEDALS.length}</b><span>Platinum</span></div>
+      <div><b>${count(3)}</b><span>Gold</span></div>
+      <div><b>${count(2)}</b><span>Silver</span></div>
+      <div><b>${count(1)}</b><span>Bronze</span></div>`;
+    let list = MEDALS.filter(m => (!q || (m.n + " " + m.d).toLowerCase().includes(q)) &&
+      (show === "all" || (show === "done") === (tierOf(m, val(m)) === 4)));
+    let html = "";
+    if (medalSortClosest) {
+      list = list.slice().sort((a, b) => {
+        const pa = tierOf(a, val(a)) === 4 ? 2 : val(a) / a.t[3], pb = tierOf(b, val(b)) === 4 ? 2 : val(b) / b.t[3];
+        return pb - pa;
+      });
+      html = `<div class="medal-grid">${list.map(m => medalCard(m, val(m))).join("")}</div>`;
+    } else {
+      for (const cat of Object.keys(CAT_ICONS)) {
+        const inCat = list.filter(m => m.c === cat);
+        if (inCat.length) html += `<h3 class="medal-cat">${CAT_ICONS[cat]} ${cat}</h3><div class="medal-grid">${inCat.map(m => medalCard(m, val(m))).join("")}</div>`;
+      }
+    }
+    document.getElementById("medal-list").innerHTML = html || `<div class="status">No medals match.</div>`;
+  }
+  document.getElementById("medal-list").addEventListener("change", (e) => {
+    const id = e.target.dataset.medal; if (!id) return;
+    const prog = loadMedals();
+    const v = Math.max(0, Math.floor(Number(e.target.value) || 0));
+    if (v) prog[id] = v; else delete prog[id];
+    saveMedals(prog);
+    renderMedals();
+    const again = document.querySelector(`[data-medal="${id}"]`); // keep your place after re-sorting
+    if (again) again.scrollIntoView({ block: "nearest" });
+  });
+  document.getElementById("medal-search").addEventListener("input", renderMedals);
+  document.getElementById("medal-show").addEventListener("change", renderMedals);
+  document.getElementById("medal-sort").onclick = () => {
+    medalSortClosest = !medalSortClosest;
+    document.getElementById("medal-sort").textContent = medalSortClosest ? "Sort: by category" : "Sort: closest to platinum";
+    renderMedals();
+  };
+  renderMedals();
+
+  /* Skip the gate if already unlocked in this tab (runs last so everything above is ready) */
+  try { if (sessionStorage.getItem("ditto-unlocked") === "1") unlock(); } catch (e) {}
+</script>
+</body>
+</html>
